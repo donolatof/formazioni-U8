@@ -1,4 +1,4 @@
-const CACHE = 'formazioni-v1';
+const CACHE = 'formazioni-v2';
 const PRECACHE = ['./index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,12 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+
+  // Let Supabase API calls go straight to network — never cache them
+  if (e.request.url.includes('supabase.co') || e.request.url.includes('cdn.jsdelivr.net')) {
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
