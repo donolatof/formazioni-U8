@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#146622"/>
+  <circle cx="256" cy="256" r="160" fill="white"/>
+  <!-- pentagono centrale -->
+  <polygon points="256,170 305,204 286,260 226,260 207,204" fill="#1a1f18"/>
+  <!-- lati del pallone (esagoni semplificati) -->
+  <polygon points="256,170 207,204 182,166 210,126 256,120" fill="#1a1f18"/>
+  <polygon points="256,170 305,204 330,166 302,126 256,120" fill="#1a1f18"/>
+  <polygon points="305,204 330,166 375,182 382,230 344,258" fill="#1a1f18"/>
+  <polygon points="286,260 344,258 348,310 304,338 258,316" fill="#1a1f18"/>
+  <polygon points="226,260 258,316 210,338 168,310 170,258" fill="#1a1f18"/>
+  <polygon points="207,204 170,258 126,230 133,182 178,166" fill="#1a1f18"/>
+</svg>
