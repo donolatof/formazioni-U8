@@ -1,6 +1,6 @@
-# Formazioni U8
+# Formazioni U9
 
-Benvenuti nell'app Formazioni U8!
+Benvenuti nell'app Formazioni U9!
 
 ## Descrizione
 L'app Formazioni U8 consente di gestire le formazioni calcistiche per le squadre giovanili di calcio. È progettata per offrire un'interfaccia semplice e intuitiva per creare e visualizzare le formazioni, tenere traccia dei giocatori e delle loro posizioni.
@@ -15,11 +15,11 @@ L'app Formazioni U8 consente di gestire le formazioni calcistiche per le squadre
 ## Installazione
 1. Clona il repository:
    ```bash
-   git clone https://github.com/donolatof/formazioni-U8.git
+   git clone https://github.com/donolatof/formazioni-U9.git
    ```
 2. Naviga nella cartella del progetto:
    ```bash
-   cd formazioni-U8
+   cd formazioni-U9
    ```
 3. Installa le dipendenze:
    ```bash
