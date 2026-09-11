@@ -3,7 +3,7 @@
 Benvenuti nell'app Formazioni U9!
 
 ## Descrizione
-L'app Formazioni U8 consente di gestire le formazioni calcistiche per le squadre giovanili di calcio. È progettata per offrire un'interfaccia semplice e intuitiva per creare e visualizzare le formazioni, tenere traccia dei giocatori e delle loro posizioni.
+L'app Formazioni U9 consente di gestire le formazioni calcistiche per le squadre giovanili di calcio. È progettata per offrire un'interfaccia semplice e intuitiva per creare e visualizzare le formazioni, tenere traccia dei giocatori e delle loro posizioni.
 
 ## Caratteristiche
 - Creazione e modifica delle formazioni
