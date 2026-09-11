@@ -1,7 +1,7 @@
 {
-  "name": "Formazioni Calcio U8",
+  "name": "Formazioni Calcio U9",
   "short_name": "Formazioni ⚽",
-  "description": "Gestione formazioni calcio Under 8 – offline",
+  "description": "Gestione formazioni calcio Under 9 – offline",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#146622",
