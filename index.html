@@ -168,6 +168,16 @@
   .rosa-item span{font-size:15px;font-weight:500;}
   .rosa-del{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);padding:4px;transition:color .15s;}
   .rosa-del:active{color:var(--red);}
+  .report-info{font-size:11px;color:var(--gray);margin-bottom:10px;}
+  .report-table{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
+  .report-row{display:flex;align-items:center;padding:9px 10px;border-bottom:1px solid var(--gray-light);gap:6px;}
+  .report-row:last-child{border-bottom:none;}
+  .report-row.report-head{background:var(--gray-light);font-size:10px;font-weight:700;text-transform:uppercase;color:var(--gray);padding:7px 10px;}
+  .report-nome{flex:1;font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .report-nome small{color:var(--gray);font-weight:400;font-size:10px;}
+  .report-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .report-col{width:52px;text-align:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .report-col-data{width:72px;text-align:center;font-size:11px;font-weight:600;flex-shrink:0;}
   .rosa-add-row{display:flex;gap:8px;margin-top:14px;}
   .rosa-add-row input{flex:1;padding:11px 12px;border:2px solid var(--gray-light);border-radius:10px;font-size:15px;font-family:'DM Sans',sans-serif;}
   .rosa-add-row input:focus{outline:none;border-color:var(--green-light);}
@@ -191,10 +201,22 @@
   </div>
 </div>
 
+<!-- Modal report convocazioni -->
+<div class="modal-overlay" id="modalReport" onclick="if(event.target===this)chiudiReport()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📊 Convocazioni</h2>
+      <button class="modal-close" onclick="chiudiReport()">✕</button>
+    </div>
+    <div id="reportBody"></div>
+  </div>
+</div>
+
 <div class="app-header">
   <div class="ball">⚽</div>
   <div><h1>Formazioni</h1><p>Calcio 5 – Under 9</p></div>
   <div class="badge" id="badgeMode">Partita</div>
+  <button class="btn-rosa" onclick="apriReport()" title="Report convocazioni">📊</button>
   <button class="btn-rosa" onclick="apriRosa()" title="Gestisci rosa">👤</button>
 </div>
 
@@ -650,6 +672,78 @@ async function aggiungiGiocatore() {
     renderPlayersList(); renderRosa();
     input.value = ''; input.focus();
   } catch(e) { alert('Errore: ' + e.message); }
+}
+
+// =============================================
+// REPORT CONVOCAZIONI
+// =============================================
+function _reportTsFromId(id) { var m = /(\d{10,})/.exec(id); return m ? parseInt(m[1]) : 0; }
+function _reportTsFromData(dstr) {
+  if (!dstr) return null;
+  var p = dstr.split('/'); if (p.length !== 3) return null;
+  var d = new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+async function getReportConvocazioni() {
+  var eventi = await getEventiSalvati();
+  var slots = [];
+  eventi.forEach(ev => {
+    var ts = _reportTsFromData(ev.data); if (ts === null) ts = _reportTsFromId(ev.id);
+    var n = ev.tipo === 'torneo' ? (parseInt(ev.nPartite) || 1) : 1;
+    for (var i=0;i<n;i++) slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: ev.data || '' });
+  });
+  slots.sort((a,b) => a.ts - b.ts);
+  var minutiTot = {};
+  try {
+    const { data: fzData } = await sb.from('formazioni').select('minuti_giocati');
+    (fzData || []).forEach(r => { var mg = r.minuti_giocati || {}; for (var n in mg) minutiTot[n] = (minutiTot[n]||0) + (mg[n]||0); });
+  } catch(e) { /* non blocchiamo il report se questa parte fallisce */ }
+  var nomi = allPlayers.slice();
+  slots.forEach(s => s.presenti.forEach(n => { if (nomi.indexOf(n) === -1) nomi.push(n); }));
+  var report = nomi.map(nome => {
+    var idxs = []; slots.forEach((s,i) => { if (s.presenti.indexOf(nome) >= 0) idxs.push(i); });
+    var convocazioni = idxs.length;
+    var lastIdx = convocazioni ? idxs[idxs.length-1] : -1;
+    var partiteMancate = lastIdx >= 0 ? (slots.length - 1 - lastIdx) : slots.length;
+    return {
+      nome, convocazioni, partiteMancate,
+      ultimaDisplay: lastIdx >= 0 ? (slots[lastIdx].dataDisplay || '—') : '—',
+      minutiTotali: minutiTot[nome] || 0,
+      inRosa: allPlayers.indexOf(nome) >= 0
+    };
+  });
+  report.sort((a,b) => b.partiteMancate - a.partiteMancate || a.nome.localeCompare(b.nome));
+  return { report, totaleMatch: slots.length };
+}
+function apriReport() {
+  document.getElementById('modalReport').classList.add('open');
+  var body = document.getElementById('reportBody');
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Caricamento...</div>';
+  getReportConvocazioni().then(res => renderReportBody(res.report, res.totaleMatch))
+    .catch(e => { body.innerHTML = '<div class="alert err show">Errore: '+(e.message||e)+'</div>'; });
+}
+function chiudiReport() { document.getElementById('modalReport').classList.remove('open'); }
+function renderReportBody(report, totale) {
+  var body = document.getElementById('reportBody');
+  if (!totale || !report.length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Nessun dato disponibile.<br>Salva almeno una partita per vedere il report.</div>';
+    return;
+  }
+  var html = '<div class="report-info">'+totale+' partit'+(totale===1?'a':'e')+' registrat'+(totale===1?'a':'e')+'</div>';
+  html += '<div class="report-table">';
+  html += '<div class="report-row report-head"><span class="report-nome">Giocatore</span><span class="report-col">Conv.</span><span class="report-col-data">Ultima</span><span class="report-col">Min.</span></div>';
+  report.forEach(r => {
+    var color = r.convocazioni===0 ? '#9e9e9e' : (r.partiteMancate===0 ? '#1a8a2e' : (r.partiteMancate<=2 ? '#f5c842' : '#d63030'));
+    var min = r.minutiTotali;
+    html += '<div class="report-row">'
+      + '<span class="report-nome"><i class="report-dot" style="background:'+color+'"></i>'+r.nome+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span>'
+      + '<span class="report-col">'+r.convocazioni+'</span>'
+      + '<span class="report-col-data">'+r.ultimaDisplay+'</span>'
+      + '<span class="report-col">'+(min%1===0?min:min.toFixed(1))+'\''+'</span>'
+      + '</div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
 }
 
 // =============================================
