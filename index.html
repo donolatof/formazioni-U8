@@ -684,13 +684,23 @@ function _reportTsFromData(dstr) {
   var d = new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
   return isNaN(d.getTime()) ? null : d.getTime();
 }
+function _reportFmtTs(ts) {
+  if (!ts) return '';
+  var d = new Date(ts); if (isNaN(d.getTime())) return '';
+  var dd=('0'+d.getDate()).slice(-2), mm=('0'+(d.getMonth()+1)).slice(-2);
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
 async function getReportConvocazioni() {
   var eventi = await getEventiSalvati();
   var slots = [];
   eventi.forEach(ev => {
-    var ts = _reportTsFromData(ev.data); if (ts === null) ts = _reportTsFromId(ev.id);
+    var ts = _reportTsFromData(ev.data), daId = false;
+    if (ts === null) { ts = _reportTsFromId(ev.id); daId = true; }
+    // se la partita non ha una data impostata, uso quella (approssimativa) di creazione
+    // dell'evento ricavata dall'id, così "Ultima convocazione" non resta mai vuota
+    var dataDisplay = ev.data || _reportFmtTs(ts);
     var n = ev.tipo === 'torneo' ? (parseInt(ev.nPartite) || 1) : 1;
-    for (var i=0;i<n;i++) slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: ev.data || '' });
+    for (var i=0;i<n;i++) slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: dataDisplay, dataApprox: daId });
   });
   slots.sort((a,b) => a.ts - b.ts);
   var minutiTot = {};
@@ -708,6 +718,7 @@ async function getReportConvocazioni() {
     return {
       nome, convocazioni, partiteMancate,
       ultimaDisplay: lastIdx >= 0 ? (slots[lastIdx].dataDisplay || '—') : '—',
+      ultimaApprox: lastIdx >= 0 ? !!slots[lastIdx].dataApprox : false,
       minutiTotali: minutiTot[nome] || 0,
       inRosa: allPlayers.indexOf(nome) >= 0
     };
@@ -732,17 +743,20 @@ function renderReportBody(report, totale) {
   var html = '<div class="report-info">'+totale+' partit'+(totale===1?'a':'e')+' registrat'+(totale===1?'a':'e')+'</div>';
   html += '<div class="report-table">';
   html += '<div class="report-row report-head"><span class="report-nome">Giocatore</span><span class="report-col">Conv.</span><span class="report-col-data">Ultima</span><span class="report-col">Min.</span></div>';
+  var haApprox = false;
   report.forEach(r => {
     var color = r.convocazioni===0 ? '#9e9e9e' : (r.partiteMancate===0 ? '#1a8a2e' : (r.partiteMancate<=2 ? '#f5c842' : '#d63030'));
     var min = r.minutiTotali;
+    if (r.ultimaApprox) haApprox = true;
     html += '<div class="report-row">'
       + '<span class="report-nome"><i class="report-dot" style="background:'+color+'"></i>'+r.nome+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span>'
       + '<span class="report-col">'+r.convocazioni+'</span>'
-      + '<span class="report-col-data">'+r.ultimaDisplay+'</span>'
+      + '<span class="report-col-data">'+r.ultimaDisplay+(r.ultimaApprox?'*':'')+'</span>'
       + '<span class="report-col">'+(min%1===0?min:min.toFixed(1))+'\''+'</span>'
       + '</div>';
   });
   html += '</div>';
+  if (haApprox) html += '<div class="report-info" style="margin:8px 0 0">* data non inserita per quella partita: è la data in cui è stata creata in app, usata come stima.</div>';
   body.innerHTML = html;
 }
 
