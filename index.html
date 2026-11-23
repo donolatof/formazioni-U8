@@ -720,11 +720,16 @@ async function getReportConvocazioni() {
     var convocazioni = idxs.length;
     var lastIdx = convocazioni ? idxs[idxs.length-1] : -1;
     var partiteMancate = lastIdx >= 0 ? (slots.length - 1 - lastIdx) : slots.length;
-    // doppio impegno: due EVENTI diversi (non le sotto-partite dello stesso torneo) le cui date
-    // cadono lo stesso giorno o in giorni consecutivi
+    // doppio impegno: le ULTIME DUE convocazioni del giocatore (giorni distinti, non le
+    // sotto-partite dello stesso torneo) cadono lo stesso giorno o in giorni consecutivi.
+    // Guardo solo le due più recenti (non tutta la storia): un episodio isolato di mesi fa
+    // non deve restare segnalato per sempre se ormai non è più la situazione attuale.
     var giorni = Object.keys(giorniPerGiocatore[nome] || {}).map(Number).sort((a,b)=>a-b);
     var doppioImpegno = false;
-    for (var gi=1; gi<giorni.length; gi++) { if (giorni[gi]-giorni[gi-1] <= 1) { doppioImpegno = true; break; } }
+    if (giorni.length >= 2) {
+      var ultimiDue = giorni.slice(-2);
+      doppioImpegno = (ultimiDue[1] - ultimiDue[0]) <= 1;
+    }
     return {
       nome, convocazioni, partiteMancate, doppioImpegno,
       ultimaDisplay: lastIdx >= 0 ? (slots[lastIdx].dataDisplay || '—') : '—',
