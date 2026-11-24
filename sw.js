@@ -1,4 +1,4 @@
-const CACHE = 'formazioni-v12';
+const CACHE = 'formazioni-v14';
 const PRECACHE = ['./index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
