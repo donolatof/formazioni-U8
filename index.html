@@ -163,11 +163,17 @@
   .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
   .modal-header h2{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--green-dark);}
   .modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--gray);padding:4px;line-height:1;}
-  .rosa-item{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid var(--gray-light);}
+  .rosa-item{padding:11px 12px;border-bottom:1px solid var(--gray-light);}
   .rosa-item:last-child{border-bottom:none;}
-  .rosa-item span{font-size:15px;font-weight:500;}
+  .rosa-item-top{display:flex;align-items:center;justify-content:space-between;}
+  .rosa-item-top span{font-size:15px;font-weight:500;}
   .rosa-del{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);padding:4px;transition:color .15s;}
   .rosa-del:active{color:var(--red);}
+  .rosa-fields{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .rosa-field{display:flex;flex-direction:column;gap:3px;flex:1;min-width:84px;}
+  .rosa-field label{font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+  .rosa-field input{padding:7px 8px;border:1.5px solid var(--gray-light);border-radius:8px;font-size:13px;font-family:inherit;width:100%;}
+  .rosa-field input:focus{outline:none;border-color:var(--green-light);}
   .modal-box-lg{max-width:620px;max-height:92vh;}
   .report-info{font-size:13px;color:var(--gray);margin-bottom:12px;line-height:1.5;}
   .report-card{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
@@ -184,6 +190,32 @@
   .rosa-add-row input{flex:1;padding:11px 12px;border:2px solid var(--gray-light);border-radius:10px;font-size:15px;font-family:'DM Sans',sans-serif;}
   .rosa-add-row input:focus{outline:none;border-color:var(--green-light);}
   .rosa-add-btn{padding:11px 16px;background:var(--green);color:white;border:none;border-radius:10px;font-size:20px;font-weight:700;cursor:pointer;}
+  .report-seg{display:flex;gap:6px;margin-bottom:12px;}
+  .report-seg button{flex:1;padding:9px 10px;border-radius:10px;border:2px solid var(--gray-light);background:white;font-weight:700;font-size:13px;cursor:pointer;color:var(--gray);}
+  .report-seg button.sel{background:var(--green);border-color:var(--green);color:white;}
+  .btn-risultato-add{margin-top:10px;width:100%;padding:9px 10px;border-radius:10px;border:2px dashed var(--gray-light);background:none;color:var(--green-dark);font-weight:700;font-size:13px;cursor:pointer;}
+  .risultato-box{margin-top:10px;padding-top:10px;border-top:1px dashed var(--gray-light);}
+  .risultato-score{display:flex;align-items:center;gap:8px;font-size:16px;}
+  .risultato-score b{font-family:'Bebas Neue',sans-serif;font-size:22px;}
+  .risultato-pill{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;color:white;font-size:12px;font-weight:700;}
+  .risultato-step{display:inline-flex;gap:4px;margin-left:auto;}
+  .risultato-step button{width:28px;height:28px;border-radius:8px;border:2px solid var(--gray-light);background:white;font-size:16px;font-weight:700;cursor:pointer;}
+  .risultato-reset{background:none;border:none;font-size:16px;cursor:pointer;color:var(--gray);padding:2px 4px;}
+  .risultato-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .risultato-chip{display:inline-flex;align-items:center;gap:5px;background:#f0f4ec;border:1.5px solid var(--gray-light);border-radius:999px;padding:4px 6px 4px 10px;font-size:12px;font-weight:600;}
+  .risultato-chip button{background:none;border:none;color:var(--gray);font-size:14px;cursor:pointer;padding:0 2px;}
+  .risultato-add-gol{background:none;border:2px solid var(--green-light);color:var(--green-dark);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+  .risultato-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--gray-light);}
+  .risultato-pick-btn{background:white;border:1.5px solid var(--gray-light);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;}
+  .risultati-list{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
+  .risultati-item{border-bottom:1px solid var(--gray-light);}
+  .risultati-item:last-child{border-bottom:none;}
+  .risultati-item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;cursor:pointer;}
+  .risultati-item-top:active{background:#f8faf6;}
+  .risultati-nome{font-size:14px;font-weight:700;}
+  .risultati-data{font-size:12px;color:var(--gray);margin-top:1px;}
+  .risultati-badge{font-size:15px;white-space:nowrap;}
+  .risultati-item .risultato-box{margin:0 14px 12px;padding-top:10px;}
 </style>
 </head>
 <body>
@@ -214,10 +246,22 @@
   </div>
 </div>
 
+<!-- Modal risultati e marcatori -->
+<div class="modal-overlay" id="modalRisultati" onclick="if(event.target===this)chiudiRisultati()">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-header">
+      <h2>⚽ Risultati</h2>
+      <button class="modal-close" onclick="chiudiRisultati()">✕</button>
+    </div>
+    <div id="risultatiBody"></div>
+  </div>
+</div>
+
 <div class="app-header">
   <div class="ball">⚽</div>
   <div><h1>Formazioni</h1><p>Calcio 5 – Under 9</p></div>
   <div class="badge" id="badgeMode">Partita</div>
+  <button class="btn-rosa" onclick="apriRisultati()" title="Risultati e marcatori">⚽</button>
   <button class="btn-rosa" onclick="apriReport()" title="Report convocazioni">📊</button>
   <button class="btn-rosa" onclick="apriRosa()" title="Gestisci rosa">👤</button>
 </div>
@@ -382,9 +426,23 @@ function fmtData(d) {
 // =============================================
 
 async function getGiocatori() {
-  const { data, error } = await sb.from('giocatori').select('nome').order('ordine').order('id');
+  const { data, error } = await sb.from('giocatori').select('nome,numero_maglia,data_nascita,tessera_figc').order('ordine').order('id');
   if (error) throw error;
+  playerInfo = {};
+  (data || []).forEach(r => { playerInfo[r.nome] = { numero:r.numero_maglia, nascita:r.data_nascita, tessera:r.tessera_figc }; });
   return (data || []).map(r => r.nome);
+}
+async function salvaAnagrafica(nome, campo, valore) {
+  var upd = {}; upd[campo] = valore === '' ? null : (campo === 'numero_maglia' ? parseInt(valore) : valore);
+  if (campo === 'numero_maglia' && isNaN(upd[campo])) upd[campo] = null;
+  try {
+    const { error } = await sb.from('giocatori').update(upd).eq('nome', nome);
+    if (error) throw error;
+    if (!playerInfo[nome]) playerInfo[nome] = {};
+    if (campo === 'numero_maglia') playerInfo[nome].numero = upd[campo];
+    else if (campo === 'data_nascita') playerInfo[nome].nascita = upd[campo];
+    else if (campo === 'tessera_figc') playerInfo[nome].tessera = upd[campo];
+  } catch(e) { alert('Errore salvataggio: ' + e.message); }
 }
 
 async function getRuoliStorico() {
@@ -433,7 +491,9 @@ async function getEventiSalvati() {
     if (/^T\d+_\d+$/.test(p.id)) return;
     eventi.push({ id:p.id, nome:p.nome_partita||'Partita', data:fmtData(p.data_partita),
       nPartite:1, segmenti:p.segmenti, durata:p.durata_segmento, tipo:'partita',
-      presenti:p.presenti||[], portiere:p.portiere||null });
+      presenti:p.presenti||[], portiere:p.portiere||null, avversario:p.avversario||'',
+      golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
+      marcatori:p.marcatori||[] });
   });
   return eventi.sort((a, b) => b.id.localeCompare(a.id));
 }
@@ -526,7 +586,9 @@ async function caricaFormazioneTorneo(torneoId) {
       const avversario = p.avversario ||
         (p.nome_partita && p.nome_partita.indexOf(' vs ') >= 0 ? p.nome_partita.split(' vs ').slice(1).join(' vs ') : '') || '';
       return { id:p.id, formazione, minutiGiocati:mg,
-        salvata:formazione.length > 0, portiere:p.portiere||null, avversario };
+        salvata:formazione.length > 0, portiere:p.portiere||null, avversario,
+        golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
+        marcatori:p.marcatori||[] };
     });
 }
 
@@ -643,7 +705,9 @@ function renderRosa() {
     return;
   }
   allPlayers.forEach((nome, idx) => {
+    var info = playerInfo[nome] || {};
     var row = document.createElement('div'); row.className = 'rosa-item';
+    var top = document.createElement('div'); top.className = 'rosa-item-top';
     var span = document.createElement('span'); span.textContent = nome;
     var btn = document.createElement('button'); btn.className = 'rosa-del'; btn.textContent = '🗑';
     btn.onclick = async () => {
@@ -656,7 +720,22 @@ function renderRosa() {
         renderPlayersList(); renderRosa();
       } catch(e) { alert('Errore: ' + e.message); btn.disabled = false; }
     };
-    row.appendChild(span); row.appendChild(btn); div.appendChild(row);
+    top.appendChild(span); top.appendChild(btn); row.appendChild(top);
+    var fields = document.createElement('div'); fields.className = 'rosa-fields';
+    function campo(label, tipo, campoDb, valore, attrs) {
+      var wrap = document.createElement('div'); wrap.className = 'rosa-field';
+      var lab = document.createElement('label'); lab.textContent = label; wrap.appendChild(lab);
+      var inp = document.createElement('input'); inp.type = tipo;
+      if (attrs) for (var k in attrs) inp.setAttribute(k, attrs[k]);
+      if (valore !== null && valore !== undefined) inp.value = valore;
+      inp.onchange = () => salvaAnagrafica(nome, campoDb, inp.value.trim());
+      wrap.appendChild(inp); return wrap;
+    }
+    fields.appendChild(campo('N°', 'number', 'numero_maglia', info.numero, {min:1,max:99}));
+    fields.appendChild(campo('Nato il', 'date', 'data_nascita', info.nascita));
+    fields.appendChild(campo('Tessera FIGC', 'text', 'tessera_figc', info.tessera, {inputmode:'numeric'}));
+    row.appendChild(fields);
+    div.appendChild(row);
   });
 }
 
@@ -712,8 +791,9 @@ async function getReportConvocazioni() {
     var giorno = Math.floor(ts / MS_GIORNO);
     if (!displayPerGiorno[giorno]) displayPerGiorno[giorno] = dataDisplay;
     (ev.presenti || []).forEach(n => { if (!giorniPerGiocatore[n]) giorniPerGiocatore[n] = {}; giorniPerGiocatore[n][giorno] = true; });
-    var n = ev.tipo === 'torneo' ? (parseInt(ev.nPartite) || 1) : 1;
-    for (var i=0;i<n;i++) slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: dataDisplay, dataApprox: daId });
+    // un torneo conta come UNA sola convocazione (indipendentemente da quante
+    // sotto-partite/nPartite lo compongono), come una partita singola
+    slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: dataDisplay, dataApprox: daId });
   });
   slots.sort((a,b) => a.ts - b.ts);
   var minutiTot = {};
@@ -751,21 +831,73 @@ async function getReportConvocazioni() {
   report.sort((a,b) => b.partiteMancate - a.partiteMancate || a.nome.localeCompare(b.nome));
   return { report, totaleMatch: slots.length };
 }
+var reportTab='conv', _reportConvData=null, _reportMarcData=null;
 function apriReport() {
+  reportTab='conv'; _reportConvData=null; _reportMarcData=null;
   document.getElementById('modalReport').classList.add('open');
   var body = document.getElementById('reportBody');
   body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Caricamento...</div>';
-  getReportConvocazioni().then(res => renderReportBody(res.report, res.totaleMatch))
+  Promise.all([getReportConvocazioni(), getClassificaMarcatori()])
+    .then(([conv, marc]) => { _reportConvData=conv; _reportMarcData=marc; renderReportTabs(); })
     .catch(e => { body.innerHTML = '<div class="alert err show">Errore: '+(e.message||e)+'</div>'; });
 }
 function chiudiReport() { document.getElementById('modalReport').classList.remove('open'); }
-function renderReportBody(report, totale) {
+function setReportTab(t) { reportTab = t; renderReportTabs(); }
+function renderReportTabs() {
   var body = document.getElementById('reportBody');
+  body.innerHTML = '<div class="report-seg">'
+    + '<button class="'+(reportTab==='conv'?'sel':'')+'" data-rtab="conv">Convocazioni</button>'
+    + '<button class="'+(reportTab==='marc'?'sel':'')+'" data-rtab="marc">⚽ Marcatori</button>'
+    + '</div><div id="reportTabBody"></div>';
+  body.querySelectorAll('[data-rtab]').forEach(b=>{ b.onclick=()=>setReportTab(b.getAttribute('data-rtab')); });
+  var tb = document.getElementById('reportTabBody');
+  if (reportTab === 'conv') renderReportBody(_reportConvData.report, _reportConvData.totaleMatch, tb);
+  else renderClassificaMarcatori(_reportMarcData, tb);
+}
+async function getClassificaMarcatori() {
+  const { data, error } = await sb.from('partite').select('gol_subiti,marcatori');
+  if (error) throw error;
+  var rows = (data || []).filter(r => r.gol_subiti !== null && r.gol_subiti !== undefined);
+  var goals = {}, v=0, n=0, p=0, gf=0, gs=0;
+  rows.forEach(r => {
+    var marc = r.marcatori || [], fatti = marc.length;
+    gf += fatti; gs += (r.gol_subiti||0);
+    if (fatti > r.gol_subiti) v++; else if (fatti < r.gol_subiti) p++; else n++;
+    marc.forEach(nome => { goals[nome] = (goals[nome]||0) + 1; });
+  });
+  var classifica = Object.keys(goals).map(nome => ({ nome, gol: goals[nome] }))
+    .sort((a,b) => b.gol - a.gol || a.nome.localeCompare(b.nome));
+  return { classifica, partiteConRisultato: rows.length, v, n, p, gf, gs };
+}
+function renderClassificaMarcatori(d, target) {
+  if (!d.partiteConRisultato) {
+    target.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Nessun risultato inserito.<br>Aggiungi un risultato dal Riepilogo dopo una partita.</div>';
+    return;
+  }
+  var html = '<div class="report-info">'+d.partiteConRisultato+' partit'+(d.partiteConRisultato===1?'a':'e')+' con risultato · '
+    + '<b style="color:#1a8a2e">'+d.v+'V</b> <b style="color:#8a958d">'+d.n+'N</b> <b style="color:#d63030">'+d.p+'P</b> · gol '+d.gf+'–'+d.gs+'</div>';
+  if (!d.classifica.length) {
+    html += '<div style="text-align:center;padding:16px;color:var(--gray);font-size:13px;">Nessun gol registrato.</div>';
+  } else {
+    html += '<div class="report-card">';
+    d.classifica.forEach((r,i) => {
+      html += '<div class="report-item"><div class="report-item-top">'
+        + '<span style="font-family:\'Bebas Neue\',sans-serif;font-size:15px;color:var(--gray);width:22px;display:inline-block;">'+(i+1)+'</span>'
+        + '<span class="report-item-nome">'+r.nome+'</span>'
+        + '<span style="font-weight:700;font-size:20px;color:var(--green-dark);">'+r.gol+'</span>'
+        + '</div></div>';
+    });
+    html += '</div>';
+  }
+  target.innerHTML = html;
+}
+function renderReportBody(report, totale, target) {
+  var body = target || document.getElementById('reportBody');
   if (!totale || !report.length) {
     body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Nessun dato disponibile.<br>Salva almeno una partita per vedere il report.</div>';
     return;
   }
-  var html = '<div class="report-info">'+totale+' partit'+(totale===1?'a':'e')+' registrat'+(totale===1?'a':'e')+'</div>';
+  var html = '<div class="report-info">'+totale+' event'+(totale===1?'o':'i')+' registrat'+(totale===1?'o':'i')+' (partita o torneo)</div>';
   html += '<div class="report-card">';
   var haApprox = false;
   report.forEach(r => {
@@ -790,7 +922,7 @@ function renderReportBody(report, totale) {
 // =============================================
 // VARIABILI GLOBALI UI
 // =============================================
-var allPlayers=[], tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null;
+var allPlayers=[], playerInfo={}, tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null;
 var torneoId=null, presentiEvento=[], gkNomeAttivo='', partiteState=[], idxCorrente=0, formazioni=[], currentSeg=0, currentId=null;
 var selectedFieldPlayer=null;
 
@@ -903,7 +1035,7 @@ async function ripristinaEvento(ev) {
           var inC=s.inField.map(p=>p.nome);
           s.benched=presentiEvento.filter(p=>inC.indexOf(p)===-1);
         });
-        partiteState=[{id:ev.id,formazione:f,minutiGiocati:mg,salvata:true,portiere:ev.portiere}];
+        partiteState=[{id:ev.id,formazione:f,minutiGiocati:mg,salvata:true,portiere:ev.portiere,avversario:ev.avversario||'',golSubiti:ev.golSubiti,marcatori:ev.marcatori||[]}];
         idxCorrente=0; formazioni=f; currentId=ev.id; gkNomeAttivo=ev.portiere?ev.portiere.nome:'';
         document.getElementById('subCfgBox').style.display='none'; document.getElementById('gameArea').style.display='block';
         document.getElementById('torneoNav').style.display='none'; currentSeg=0; goTo(2); _caricaPartitaPost(0);
@@ -1153,7 +1285,7 @@ async function avviaEvento() {
   }
   if(tipoEvento==='torneo'){
     partiteState=[];
-    for(var k=0;k<cfgNPartite;k++){var cfgP=getPortierePartita(k);partiteState.push({id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgP.nome?{nome:cfgP.nome,tempiGK:cfgP.tempiGK}:null,subTempi:cfgP.subTempi,avversario:cfgP.avversario});}
+    for(var k=0;k<cfgNPartite;k++){var cfgP=getPortierePartita(k);partiteState.push({id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgP.nome?{nome:cfgP.nome,tempiGK:cfgP.tempiGK}:null,subTempi:cfgP.subTempi,avversario:cfgP.avversario,golSubiti:null,marcatori:[]});}
     showLoading('Creazione torneo...');
     try {
       var res=await creaTorneo({nomeTorneo:cfgNome,dataEvento:cfgData,nPartite:cfgNPartite,segmenti:cfgTempi,durataTempo:cfgDurata,portiere:cfgPortiere,presenti:presentiEvento});
@@ -1167,7 +1299,7 @@ async function avviaEvento() {
   } else {
     var avvSingola=document.getElementById('avversarioSingola')?document.getElementById('avversarioSingola').value.trim():'';
     var subSingola=getSubStep0();
-    partiteState=[{id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgPortiere,avversario:avvSingola,subTempi:subSingola}];
+    partiteState=[{id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgPortiere,avversario:avvSingola,subTempi:subSingola,golSubiti:null,marcatori:[]}];
     idxCorrente=0; gkNomeAttivo=cfgPortiere?cfgPortiere.nome:'';
     document.getElementById('torneoNav').style.display='none'; document.getElementById('subCfgBox').style.display='none'; goTo(2);
     var cumS={}; for(var ks=0;ks<presentiEvento.length;ks++)cumS[presentiEvento[ks]]=0;
@@ -1418,6 +1550,9 @@ function mostraRiepilogo(){
       });
     }
   }
+  renderPartiteCards();
+}
+function renderPartiteCards(){
   var cards=document.getElementById('partiteCards'); cards.innerHTML='';
   partiteState.forEach((ps,idx)=>{
     var card=document.createElement('div'); card.className='partita-card';
@@ -1430,6 +1565,115 @@ function mostraRiepilogo(){
     body.innerHTML=righe||'<span style="font-size:12px;color:var(--gray);">Nessun dato</span>';
     card.appendChild(header); card.appendChild(body); cards.appendChild(card);
   });
+}
+
+// =============================================
+// RISULTATI E MARCATORI (sezione a parte, indipendente dal Riepilogo)
+// =============================================
+var risultatiData=[], risultatiApertoId=null, risultatiPickerId=null;
+function apriRisultati() {
+  risultatiApertoId=null; risultatiPickerId=null;
+  document.getElementById('modalRisultati').classList.add('open');
+  var body=document.getElementById('risultatiBody');
+  body.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Caricamento...</div>';
+  getPartiteRisultati().then(rows=>{ risultatiData=rows; renderRisultatiBody(); })
+    .catch(e=>{ body.innerHTML='<div class="alert err show">Errore: '+(e.message||e)+'</div>'; });
+}
+function chiudiRisultati() { document.getElementById('modalRisultati').classList.remove('open'); }
+async function getPartiteRisultati() {
+  const [{ data: torneiData }, { data: partiteData }] = await Promise.all([
+    sb.from('tornei').select('*'),
+    sb.from('partite').select('*')
+  ]);
+  var torneiMap = {}; (torneiData||[]).forEach(t=>{ torneiMap[t.id]=t; });
+  var rows = (partiteData||[]).map(p=>{
+    var mTorneo = /^(T\d+)_(\d+)$/.exec(p.id);
+    var torneo = mTorneo ? torneiMap[mTorneo[1]] : null;
+    var dataStr = fmtData(p.data_partita) || (torneo ? fmtData(torneo.data) : '') || '';
+    var presenti = (p.presenti && p.presenti.length) ? p.presenti : (torneo ? (torneo.presenti||[]) : []);
+    var nome = torneo
+      ? (torneo.nome + ' · Partita ' + mTorneo[2] + (p.avversario ? ' vs ' + p.avversario : ''))
+      : (p.avversario ? ('vs ' + p.avversario) : (p.nome_partita || 'Partita'));
+    var ts = _reportTsFromData(dataStr); if (ts === null) ts = _reportTsFromId(p.id);
+    return { id:p.id, nome, data:dataStr, presenti, ts,
+      golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
+      marcatori:p.marcatori||[] };
+  });
+  rows.sort((a,b)=>b.ts-a.ts);
+  return rows;
+}
+function renderRisultatiBody() {
+  var body=document.getElementById('risultatiBody');
+  if (!risultatiData.length) {
+    body.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Nessuna partita salvata.<br>Genera e salva almeno una partita per inserire un risultato.</div>';
+    return;
+  }
+  var html='<div class="risultati-list">';
+  risultatiData.forEach((r,idx)=>{
+    var aperto = risultatiApertoId===r.id;
+    var hasRis = r.golSubiti!==null && r.golSubiti!==undefined;
+    var badge = hasRis ? ('<b>'+(r.marcatori||[]).length+'</b>&nbsp;–&nbsp;<b>'+r.golSubiti+'</b>') : '<span style="color:var(--gray);font-size:12px;">nessun risultato</span>';
+    html += '<div class="risultati-item">'
+      + '<div class="risultati-item-top" data-rrow="'+idx+'"><div><div class="risultati-nome">'+r.nome+'</div><div class="risultati-data">'+(r.data||'')+'</div></div><div class="risultati-badge">'+badge+'</div></div>'
+      + (aperto ? renderRisultatoBoxStandalone(r, idx) : '')
+      + '</div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+  body.querySelectorAll('[data-rrow]').forEach(el=>{
+    el.onclick = () => {
+      var i=+el.dataset.rrow;
+      risultatiApertoId = (risultatiApertoId===risultatiData[i].id) ? null : risultatiData[i].id;
+      risultatiPickerId = null;
+      renderRisultatiBody();
+    };
+  });
+  body.querySelectorAll('[data-rbtn2]').forEach(btn=>{
+    btn.onclick = function(e){
+      e.stopPropagation();
+      var i=+this.dataset.idx, r=risultatiData[i];
+      if (this.dataset.act==='add') { r.golSubiti=0; r.marcatori=r.marcatori||[]; salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='gs') { r.golSubiti=Math.max(0,(r.golSubiti||0)+ +this.dataset.d); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='reset') { if(!confirm('Rimuovere il risultato inserito?'))return; r.golSubiti=null; r.marcatori=[]; if(risultatiPickerId===r.id)risultatiPickerId=null; salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='togglepick') { risultatiPickerId=(risultatiPickerId===r.id)?null:r.id; renderRisultatiBody(); }
+      else if (this.dataset.act==='addgoal') { r.marcatori=r.marcatori||[]; r.marcatori.push(this.dataset.nome); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='rmgoal') { r.marcatori.splice(+this.dataset.k,1); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+    };
+  });
+}
+function renderRisultatoBoxStandalone(r, idx) {
+  var hasRis = r.golSubiti!==null && r.golSubiti!==undefined;
+  if (!hasRis) {
+    return '<div class="risultato-box"><button class="btn-risultato-add" data-rbtn2 data-act="add" data-idx="'+idx+'">📝 Aggiungi risultato</button></div>';
+  }
+  var gf = (r.marcatori||[]).length, gs = r.golSubiti||0;
+  var esito = gf>gs?'V':(gf<gs?'P':'N');
+  var colEsito = esito==='V'?'#1a8a2e':(esito==='P'?'#d63030':'#8a958d');
+  var conteggi = {}, ordine = [];
+  (r.marcatori||[]).forEach(n=>{ if(conteggi[n]===undefined){conteggi[n]=0;ordine.push(n);} conteggi[n]++; });
+  var chipsHtml = ordine.map(nome=>{
+    var lastIdx=-1; (r.marcatori||[]).forEach((n,k)=>{if(n===nome)lastIdx=k;});
+    return '<span class="risultato-chip">'+nome+(conteggi[nome]>1?' ×'+conteggi[nome]:'')
+      + '<button data-rbtn2 data-act="rmgoal" data-idx="'+idx+'" data-k="'+lastIdx+'" aria-label="Togli gol">×</button></span>';
+  }).join('');
+  var rosaPresenti = (r.presenti&&r.presenti.length?r.presenti:allPlayers).concat(['Autorete/Altro']);
+  var pickerHtml = risultatiPickerId===r.id
+    ? '<div class="risultato-picker">'+rosaPresenti.map(n=>'<button class="risultato-pick-btn" data-rbtn2 data-act="addgoal" data-idx="'+idx+'" data-nome="'+n.replace(/"/g,'&quot;')+'">'+n+'</button>').join('')+'</div>'
+    : '';
+  return '<div class="risultato-box">'
+      + '<div class="risultato-score"><span class="risultato-pill" style="background:'+colEsito+'">'+esito+'</span><b>'+gf+'</b>&nbsp;–&nbsp;<b>'+gs+'</b>'
+        + '<span class="risultato-step"><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-d="-1">−</button><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-d="1">+</button></span>'
+        + '<button class="risultato-reset" data-rbtn2 data-act="reset" data-idx="'+idx+'" title="Rimuovi risultato">🗑</button>'
+      + '</div>'
+      + '<div class="risultato-chips">'+chipsHtml+'<button class="risultato-add-gol" data-rbtn2 data-act="togglepick" data-idx="'+idx+'">'+(risultatiPickerId===r.id?'Chiudi':'+ Gol')+'</button></div>'
+      + pickerHtml
+    + '</div>';
+}
+async function salvaRisultatoStandalone(r) {
+  try {
+    const { error } = await sb.from('partite').update({ gol_subiti:r.golSubiti, marcatori:r.marcatori }).eq('id', r.id);
+    if (error) throw error;
+  } catch(e) { alert('Errore salvataggio risultato: ' + e.message); }
 }
 async function nuovoEvento(){
   torneoId=null;presentiEvento=[];gkNomeAttivo='';partiteState=[];idxCorrente=0;formazioni=[];currentSeg=0;currentId=null;cfgPortiere=null;selectedFieldPlayer=null;
