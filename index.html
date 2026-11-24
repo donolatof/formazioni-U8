@@ -207,6 +207,13 @@
   .risultato-add-gol{background:none;border:2px solid var(--green-light);color:var(--green-dark);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;}
   .risultato-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--gray-light);}
   .risultato-pick-btn{background:white;border:1.5px solid var(--gray-light);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;}
+  .risultato-tempo{margin-top:10px;padding-top:10px;border-top:1px dashed var(--gray-light);}
+  .risultato-tempo-head{display:flex;align-items:center;gap:8px;}
+  .risultato-tempo-head b{font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.3px;}
+  .risultato-tempo-head .risultato-score{margin-left:auto;font-size:14px;}
+  .risultato-tempo-head .risultato-score b{font-size:17px;}
+  .risultato-tempo-rm{background:none;border:none;font-size:14px;cursor:pointer;color:var(--gray);padding:2px 4px;}
+  .risultato-add-tempo{display:block;width:100%;margin-top:10px;background:none;border:2px dashed var(--gray-light);color:var(--green-dark);border-radius:10px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;}
   .risultati-list{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
   .risultati-item{border-bottom:1px solid var(--gray-light);}
   .risultati-item:last-child{border-bottom:none;}
@@ -1595,12 +1602,21 @@ async function getPartiteRisultati() {
       ? (torneo.nome + ' · Partita ' + mTorneo[2] + (p.avversario ? ' vs ' + p.avversario : ''))
       : (p.avversario ? ('vs ' + p.avversario) : (p.nome_partita || 'Partita'));
     var ts = _reportTsFromData(dataStr); if (ts === null) ts = _reportTsFromId(p.id);
+    var hasRis = p.gol_subiti!==null && p.gol_subiti!==undefined;
+    var tempi = (p.tempi && p.tempi.length)
+      ? p.tempi.map(t=>({ marcatori:(t.marcatori||[]).slice(), golSubiti:t.golSubiti||0 }))
+      : (hasRis ? [{ marcatori:(p.marcatori||[]).slice(), golSubiti:p.gol_subiti }] : []);
     return { id:p.id, nome, data:dataStr, presenti, ts,
-      golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
-      marcatori:p.marcatori||[] };
+      golSubiti:hasRis?p.gol_subiti:null,
+      marcatori:p.marcatori||[], tempi };
   });
   rows.sort((a,b)=>b.ts-a.ts);
   return rows;
+}
+function _ricalcolaRisultato(r) {
+  r.marcatori = []; var tot=0;
+  (r.tempi||[]).forEach(t=>{ (t.marcatori||[]).forEach(n=>r.marcatori.push(n)); tot += (t.golSubiti||0); });
+  r.golSubiti = tot;
 }
 function renderRisultatiBody() {
   var body=document.getElementById('risultatiBody');
@@ -1631,13 +1647,19 @@ function renderRisultatiBody() {
   body.querySelectorAll('[data-rbtn2]').forEach(btn=>{
     btn.onclick = function(e){
       e.stopPropagation();
-      var i=+this.dataset.idx, r=risultatiData[i];
-      if (this.dataset.act==='add') { r.golSubiti=0; r.marcatori=r.marcatori||[]; salvaRisultatoStandalone(r); renderRisultatiBody(); }
-      else if (this.dataset.act==='gs') { r.golSubiti=Math.max(0,(r.golSubiti||0)+ +this.dataset.d); salvaRisultatoStandalone(r); renderRisultatiBody(); }
-      else if (this.dataset.act==='reset') { if(!confirm('Rimuovere il risultato inserito?'))return; r.golSubiti=null; r.marcatori=[]; if(risultatiPickerId===r.id)risultatiPickerId=null; salvaRisultatoStandalone(r); renderRisultatiBody(); }
-      else if (this.dataset.act==='togglepick') { risultatiPickerId=(risultatiPickerId===r.id)?null:r.id; renderRisultatiBody(); }
-      else if (this.dataset.act==='addgoal') { r.marcatori=r.marcatori||[]; r.marcatori.push(this.dataset.nome); salvaRisultatoStandalone(r); renderRisultatiBody(); }
-      else if (this.dataset.act==='rmgoal') { r.marcatori.splice(+this.dataset.k,1); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      var i=+this.dataset.idx, r=risultatiData[i], t=this.dataset.t!==undefined?+this.dataset.t:null;
+      if (this.dataset.act==='add') { r.tempi=[{marcatori:[],golSubiti:0}]; _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='addtempo') { r.tempi=r.tempi||[]; r.tempi.push({marcatori:[],golSubiti:0}); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='rmtempo') {
+        if ((r.tempi||[]).length<=1) { if(!confirm('Rimuovere il risultato inserito?'))return; r.tempi=[]; r.golSubiti=null; r.marcatori=[]; risultatiPickerId=null; }
+        else { if(!confirm('Rimuovere questo tempo?'))return; r.tempi.splice(t,1); _ricalcolaRisultato(r); if(risultatiPickerId===(r.id+'|'+t))risultatiPickerId=null; }
+        salvaRisultatoStandalone(r); renderRisultatiBody();
+      }
+      else if (this.dataset.act==='gs') { r.tempi[t].golSubiti=Math.max(0,(r.tempi[t].golSubiti||0)+ +this.dataset.d); _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='reset') { if(!confirm('Rimuovere il risultato inserito?'))return; r.golSubiti=null; r.marcatori=[]; r.tempi=[]; risultatiPickerId=null; salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='togglepick') { var key=r.id+'|'+t; risultatiPickerId=(risultatiPickerId===key)?null:key; renderRisultatiBody(); }
+      else if (this.dataset.act==='addgoal') { r.tempi[t].marcatori=r.tempi[t].marcatori||[]; r.tempi[t].marcatori.push(this.dataset.nome); _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      else if (this.dataset.act==='rmgoal') { r.tempi[t].marcatori.splice(+this.dataset.k,1); _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
     };
   });
 }
@@ -1649,29 +1671,41 @@ function renderRisultatoBoxStandalone(r, idx) {
   var gf = (r.marcatori||[]).length, gs = r.golSubiti||0;
   var esito = gf>gs?'V':(gf<gs?'P':'N');
   var colEsito = esito==='V'?'#1a8a2e':(esito==='P'?'#d63030':'#8a958d');
-  var conteggi = {}, ordine = [];
-  (r.marcatori||[]).forEach(n=>{ if(conteggi[n]===undefined){conteggi[n]=0;ordine.push(n);} conteggi[n]++; });
-  var chipsHtml = ordine.map(nome=>{
-    var lastIdx=-1; (r.marcatori||[]).forEach((n,k)=>{if(n===nome)lastIdx=k;});
-    return '<span class="risultato-chip">'+nome+(conteggi[nome]>1?' ×'+conteggi[nome]:'')
-      + '<button data-rbtn2 data-act="rmgoal" data-idx="'+idx+'" data-k="'+lastIdx+'" aria-label="Togli gol">×</button></span>';
-  }).join('');
   var rosaPresenti = (r.presenti&&r.presenti.length?r.presenti:allPlayers).concat(['Autorete/Altro']);
-  var pickerHtml = risultatiPickerId===r.id
-    ? '<div class="risultato-picker">'+rosaPresenti.map(n=>'<button class="risultato-pick-btn" data-rbtn2 data-act="addgoal" data-idx="'+idx+'" data-nome="'+n.replace(/"/g,'&quot;')+'">'+n+'</button>').join('')+'</div>'
-    : '';
+  var tempiHtml = (r.tempi||[]).map(function(tm, t){
+    var conteggi = {}, ordine = [];
+    (tm.marcatori||[]).forEach(n=>{ if(conteggi[n]===undefined){conteggi[n]=0;ordine.push(n);} conteggi[n]++; });
+    var chipsHtml = ordine.map(nome=>{
+      var lastIdx=-1; (tm.marcatori||[]).forEach((n,k)=>{if(n===nome)lastIdx=k;});
+      return '<span class="risultato-chip">'+nome+(conteggi[nome]>1?' ×'+conteggi[nome]:'')
+        + '<button data-rbtn2 data-act="rmgoal" data-idx="'+idx+'" data-t="'+t+'" data-k="'+lastIdx+'" aria-label="Togli gol">×</button></span>';
+    }).join('');
+    var pickerKey = r.id+'|'+t;
+    var pickerHtml = risultatiPickerId===pickerKey
+      ? '<div class="risultato-picker">'+rosaPresenti.map(n=>'<button class="risultato-pick-btn" data-rbtn2 data-act="addgoal" data-idx="'+idx+'" data-t="'+t+'" data-nome="'+n.replace(/"/g,'&quot;')+'">'+n+'</button>').join('')+'</div>'
+      : '';
+    return '<div class="risultato-tempo">'
+      + '<div class="risultato-tempo-head"><b>Tempo '+(t+1)+'</b>'
+        + '<span class="risultato-score"><b>'+(tm.marcatori||[]).length+'</b>&nbsp;–&nbsp;<b>'+(tm.golSubiti||0)+'</b>'
+          + '<span class="risultato-step"><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-t="'+t+'" data-d="-1">−</button><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-t="'+t+'" data-d="1">+</button></span>'
+        + '</span>'
+        + '<button class="risultato-tempo-rm" data-rbtn2 data-act="rmtempo" data-idx="'+idx+'" data-t="'+t+'" title="Rimuovi tempo">🗑</button>'
+      + '</div>'
+      + '<div class="risultato-chips">'+chipsHtml+'<button class="risultato-add-gol" data-rbtn2 data-act="togglepick" data-idx="'+idx+'" data-t="'+t+'">'+(risultatiPickerId===pickerKey?'Chiudi':'+ Gol')+'</button></div>'
+      + pickerHtml
+    + '</div>';
+  }).join('');
   return '<div class="risultato-box">'
-      + '<div class="risultato-score"><span class="risultato-pill" style="background:'+colEsito+'">'+esito+'</span><b>'+gf+'</b>&nbsp;–&nbsp;<b>'+gs+'</b>'
-        + '<span class="risultato-step"><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-d="-1">−</button><button data-rbtn2 data-act="gs" data-idx="'+idx+'" data-d="1">+</button></span>'
+      + '<div class="risultato-score risultato-score-tot"><span class="risultato-pill" style="background:'+colEsito+'">'+esito+'</span><b>'+gf+'</b>&nbsp;–&nbsp;<b>'+gs+'</b>'
         + '<button class="risultato-reset" data-rbtn2 data-act="reset" data-idx="'+idx+'" title="Rimuovi risultato">🗑</button>'
       + '</div>'
-      + '<div class="risultato-chips">'+chipsHtml+'<button class="risultato-add-gol" data-rbtn2 data-act="togglepick" data-idx="'+idx+'">'+(risultatiPickerId===r.id?'Chiudi':'+ Gol')+'</button></div>'
-      + pickerHtml
+      + tempiHtml
+      + '<button class="risultato-add-tempo" data-rbtn2 data-act="addtempo" data-idx="'+idx+'">+ Aggiungi tempo</button>'
     + '</div>';
 }
 async function salvaRisultatoStandalone(r) {
   try {
-    const { error } = await sb.from('partite').update({ gol_subiti:r.golSubiti, marcatori:r.marcatori }).eq('id', r.id);
+    const { error } = await sb.from('partite').update({ gol_subiti:r.golSubiti, marcatori:r.marcatori, tempi:r.tempi||[] }).eq('id', r.id);
     if (error) throw error;
   } catch(e) { alert('Errore salvataggio risultato: ' + e.message); }
 }
