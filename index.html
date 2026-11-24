@@ -180,7 +180,6 @@
   .report-item{padding:14px 16px;border-bottom:1px solid var(--gray-light);}
   .report-item:last-child{border-bottom:none;}
   .report-item-top{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
-  .report-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
   .report-item-nome{font-size:17px;font-weight:700;flex:1;min-width:0;overflow-wrap:break-word;}
   .report-item-nome small{color:var(--gray);font-weight:500;font-size:13px;}
   .report-stats{display:flex;flex-wrap:wrap;gap:5px 16px;font-size:15px;color:var(--text);}
@@ -908,11 +907,10 @@ function renderReportBody(report, totale, target) {
   html += '<div class="report-card">';
   var haApprox = false;
   report.forEach(r => {
-    var color = r.convocazioni===0 ? '#9e9e9e' : (r.partiteMancate===0 ? '#1a8a2e' : (r.partiteMancate<=2 ? '#f5c842' : '#d63030'));
     var min = r.minutiTotali;
     if (r.ultimaApprox) haApprox = true;
     html += '<div class="report-item">'
-      + '<div class="report-item-top"><i class="report-dot" style="background:'+color+'"></i><span class="report-item-nome">'+r.nome+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span></div>'
+      + '<div class="report-item-top"><span class="report-item-nome">'+r.nome+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span></div>'
       + '<div class="report-stats">'
         + '<span><b>'+r.convocazioni+'</b> convocazioni</span>'
         + '<span>ultima: <b>'+r.ultimaDisplay+(r.ultimaApprox?'*':'')+'</b></span>'
