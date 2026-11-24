@@ -168,17 +168,18 @@
   .rosa-item span{font-size:15px;font-weight:500;}
   .rosa-del{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);padding:4px;transition:color .15s;}
   .rosa-del:active{color:var(--red);}
-  .report-info{font-size:11px;color:var(--gray);margin-bottom:10px;}
-  .report-table{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
-  .report-row{display:flex;align-items:center;padding:9px 10px;border-bottom:1px solid var(--gray-light);gap:6px;}
-  .report-row:last-child{border-bottom:none;}
-  .report-row.report-head{background:var(--gray-light);font-size:10px;font-weight:700;text-transform:uppercase;color:var(--gray);padding:7px 10px;}
-  .report-nome{flex:1;font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .report-nome small{color:var(--gray);font-weight:400;font-size:10px;}
-  .report-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-  .report-flag{font-size:11px;flex-shrink:0;}
-  .report-col{width:52px;text-align:center;font-size:12px;font-weight:700;flex-shrink:0;}
-  .report-col-data{width:72px;text-align:center;font-size:11px;font-weight:600;flex-shrink:0;}
+  .modal-box-lg{max-width:620px;max-height:92vh;}
+  .report-info{font-size:13px;color:var(--gray);margin-bottom:12px;line-height:1.5;}
+  .report-card{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
+  .report-item{padding:14px 16px;border-bottom:1px solid var(--gray-light);}
+  .report-item:last-child{border-bottom:none;}
+  .report-item-top{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
+  .report-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+  .report-item-nome{font-size:17px;font-weight:700;flex:1;min-width:0;overflow-wrap:break-word;}
+  .report-item-nome small{color:var(--gray);font-weight:500;font-size:13px;}
+  .report-stats{display:flex;flex-wrap:wrap;gap:5px 16px;font-size:15px;color:var(--text);}
+  .report-stats b{font-weight:700;}
+  .report-doppio{margin-top:8px;font-size:14px;color:#8a4b00;background:#fff3cd;border:1px solid #ffe29a;border-radius:9px;padding:7px 10px;line-height:1.4;}
   .rosa-add-row{display:flex;gap:8px;margin-top:14px;}
   .rosa-add-row input{flex:1;padding:11px 12px;border:2px solid var(--gray-light);border-radius:10px;font-size:15px;font-family:'DM Sans',sans-serif;}
   .rosa-add-row input:focus{outline:none;border-color:var(--green-light);}
@@ -204,7 +205,7 @@
 
 <!-- Modal report convocazioni -->
 <div class="modal-overlay" id="modalReport" onclick="if(event.target===this)chiudiReport()">
-  <div class="modal-box">
+  <div class="modal-box modal-box-lg">
     <div class="modal-header">
       <h2>📊 Convocazioni</h2>
       <button class="modal-close" onclick="chiudiReport()">✕</button>
@@ -692,10 +693,16 @@ function _reportFmtTs(ts) {
   return dd+'/'+mm+'/'+d.getFullYear();
 }
 var MS_GIORNO = 86400000;
+function _reportShortDate(dstr) {
+  // dd/mm/yyyy -> dd/mm (per non appesantire l'elenco delle date di doppio impegno)
+  if (!dstr) return '';
+  var p = dstr.split('/'); return p.length === 3 ? (p[0]+'/'+p[1]) : dstr;
+}
 async function getReportConvocazioni() {
   var eventi = await getEventiSalvati();
   var slots = [];
   var giorniPerGiocatore = {}; // nome -> { giornoNum: true } — un ingresso per EVENTO (non per sotto-partita del torneo)
+  var displayPerGiorno = {}; // giornoNum -> data leggibile (dd/mm/yyyy)
   eventi.forEach(ev => {
     var ts = _reportTsFromData(ev.data), daId = false;
     if (ts === null) { ts = _reportTsFromId(ev.id); daId = true; }
@@ -703,6 +710,7 @@ async function getReportConvocazioni() {
     // dell'evento ricavata dall'id, così "Ultima convocazione" non resta mai vuota
     var dataDisplay = ev.data || _reportFmtTs(ts);
     var giorno = Math.floor(ts / MS_GIORNO);
+    if (!displayPerGiorno[giorno]) displayPerGiorno[giorno] = dataDisplay;
     (ev.presenti || []).forEach(n => { if (!giorniPerGiocatore[n]) giorniPerGiocatore[n] = {}; giorniPerGiocatore[n][giorno] = true; });
     var n = ev.tipo === 'torneo' ? (parseInt(ev.nPartite) || 1) : 1;
     for (var i=0;i<n;i++) slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: dataDisplay, dataApprox: daId });
@@ -720,18 +728,20 @@ async function getReportConvocazioni() {
     var convocazioni = idxs.length;
     var lastIdx = convocazioni ? idxs[idxs.length-1] : -1;
     var partiteMancate = lastIdx >= 0 ? (slots.length - 1 - lastIdx) : slots.length;
-    // doppio impegno: le ULTIME DUE convocazioni del giocatore (giorni distinti, non le
-    // sotto-partite dello stesso torneo) cadono lo stesso giorno o in giorni consecutivi.
-    // Guardo solo le due più recenti (non tutta la storia): un episodio isolato di mesi fa
-    // non deve restare segnalato per sempre se ormai non è più la situazione attuale.
+    // doppio impegno: ogni volta che due convocazioni consecutive del giocatore (giorni
+    // distinti, non le sotto-partite dello stesso torneo) cadono lo stesso giorno o in
+    // giorni consecutivi. Qui conto TUTTI gli episodi della storia (richiesta del mister),
+    // non solo l'ultimo: a differenza del flag di prima, questo è un totale stagionale.
     var giorni = Object.keys(giorniPerGiocatore[nome] || {}).map(Number).sort((a,b)=>a-b);
-    var doppioImpegno = false;
-    if (giorni.length >= 2) {
-      var ultimiDue = giorni.slice(-2);
-      doppioImpegno = (ultimiDue[1] - ultimiDue[0]) <= 1;
+    var doppioCount = 0, doppioDate = [];
+    for (var gi=1; gi<giorni.length; gi++) {
+      if (giorni[gi] - giorni[gi-1] <= 1) {
+        doppioCount++;
+        doppioDate.push(_reportShortDate(displayPerGiorno[giorni[gi-1]]) + '-' + _reportShortDate(displayPerGiorno[giorni[gi]]));
+      }
     }
     return {
-      nome, convocazioni, partiteMancate, doppioImpegno,
+      nome, convocazioni, partiteMancate, doppioCount, doppioDate,
       ultimaDisplay: lastIdx >= 0 ? (slots[lastIdx].dataDisplay || '—') : '—',
       ultimaApprox: lastIdx >= 0 ? !!slots[lastIdx].dataApprox : false,
       minutiTotali: minutiTot[nome] || 0,
@@ -756,24 +766,24 @@ function renderReportBody(report, totale) {
     return;
   }
   var html = '<div class="report-info">'+totale+' partit'+(totale===1?'a':'e')+' registrat'+(totale===1?'a':'e')+'</div>';
-  html += '<div class="report-table">';
-  html += '<div class="report-row report-head"><span class="report-nome">Giocatore</span><span class="report-col">Conv.</span><span class="report-col-data">Ultima</span><span class="report-col">Min.</span></div>';
-  var haApprox = false, haDoppio = false;
+  html += '<div class="report-card">';
+  var haApprox = false;
   report.forEach(r => {
     var color = r.convocazioni===0 ? '#9e9e9e' : (r.partiteMancate===0 ? '#1a8a2e' : (r.partiteMancate<=2 ? '#f5c842' : '#d63030'));
     var min = r.minutiTotali;
     if (r.ultimaApprox) haApprox = true;
-    if (r.doppioImpegno) haDoppio = true;
-    html += '<div class="report-row">'
-      + '<span class="report-nome"><i class="report-dot" style="background:'+color+'"></i>'+r.nome+(r.doppioImpegno?' <span class="report-flag" title="Doppio impegno: convocato in due eventi a 0-1 giorno di distanza">🔁</span>':'')+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span>'
-      + '<span class="report-col">'+r.convocazioni+'</span>'
-      + '<span class="report-col-data">'+r.ultimaDisplay+(r.ultimaApprox?'*':'')+'</span>'
-      + '<span class="report-col">'+(min%1===0?min:min.toFixed(1))+'\''+'</span>'
+    html += '<div class="report-item">'
+      + '<div class="report-item-top"><i class="report-dot" style="background:'+color+'"></i><span class="report-item-nome">'+r.nome+(r.inRosa?'':' <small>(non in rosa)</small>')+'</span></div>'
+      + '<div class="report-stats">'
+        + '<span><b>'+r.convocazioni+'</b> convocazioni</span>'
+        + '<span>ultima: <b>'+r.ultimaDisplay+(r.ultimaApprox?'*':'')+'</b></span>'
+        + '<span><b>'+(min%1===0?min:min.toFixed(1))+'\'</b> giocati</span>'
+      + '</div>'
+      + (r.doppioCount>0 ? '<div class="report-doppio">🔁 Doppio impegno <b>'+r.doppioCount+'</b> volt'+(r.doppioCount===1?'a':'e')+': '+r.doppioDate.join(', ')+'</div>' : '')
       + '</div>';
   });
   html += '</div>';
-  if (haDoppio) html += '<div class="report-info" style="margin:8px 0 0">🔁 = convocato in due eventi lo stesso giorno o in giorni consecutivi (possibile doppio impegno).</div>';
-  if (haApprox) html += '<div class="report-info" style="margin:4px 0 0">* data non inserita per quella partita: è la data in cui è stata creata in app, usata come stima.</div>';
+  if (haApprox) html += '<div class="report-info" style="margin:10px 0 0">* data non inserita per quella partita: è la data in cui è stata creata in app, usata come stima.</div>';
   body.innerHTML = html;
 }
 
