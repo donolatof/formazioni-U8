@@ -501,7 +501,13 @@ async function getEventiSalvati() {
       golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
       marcatori:p.marcatori||[] });
   });
-  return eventi.sort((a, b) => b.id.localeCompare(a.id));
+  // ordine cronologico decrescente (più recente prima), per data reale quando c'è,
+  // altrimenti per timestamp ricavato dall'id. Un confronto testuale sull'id da solo
+  // non va bene: gli id dei tornei iniziano per "T" e quelli delle partite per "P",
+  // quindi un ordinamento alfabetico li separerebbe in due blocchi invece di mescolarli
+  // per data reale.
+  eventi.forEach(ev => { var ts = _reportTsFromData(ev.data); ev._ts = ts === null ? _reportTsFromId(ev.id) : ts; });
+  return eventi.sort((a, b) => b._ts - a._ts);
 }
 
 async function eliminaEvento(idEvento) {
