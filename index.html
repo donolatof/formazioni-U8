@@ -1492,7 +1492,12 @@ function renderMinutiPartita(){
 }
 async function salvaPartita(){
   var ps=partiteState[idxCorrente], avversario=ps.avversario||'';
-  var nomeVisuale=avversario?'Partita '+(idxCorrente+1)+' vs '+avversario:'Partita '+(idxCorrente+1);
+  // per un torneo ogni sotto-partita si chiama "Partita N" (il nome vero è quello del
+  // torneo, cfgNome); per una partita singola invece usiamo il nome scritto dall'utente
+  // nel campo "Nome partita" (cfgNome), non un'etichetta generica
+  var nomeVisuale = (tipoEvento==='torneo')
+    ? (avversario?'Partita '+(idxCorrente+1)+' vs '+avversario:'Partita '+(idxCorrente+1))
+    : (cfgNome || (avversario?('vs '+avversario):'Partita'));
   var extra={nome:nomeVisuale,data:document.getElementById('dataEvento').value,avversario};
   partiteState[idxCorrente].formazione=formazioni; _ricalcolaMinuti();
   showLoading('Salvataggio...');
@@ -1561,7 +1566,9 @@ function renderPartiteCards(){
   partiteState.forEach((ps,idx)=>{
     var card=document.createElement('div'); card.className='partita-card';
     var header=document.createElement('div'); header.className='partita-card-header';
-    var nomeCard=ps.avversario?'Partita '+(idx+1)+' vs '+ps.avversario:'Partita '+(idx+1);
+    var nomeCard = (tipoEvento==='torneo')
+      ? (ps.avversario?'Partita '+(idx+1)+' vs '+ps.avversario:'Partita '+(idx+1))
+      : (cfgNome || (ps.avversario?('vs '+ps.avversario):'Partita'));
     header.innerHTML='<strong>'+nomeCard+'</strong><span style="font-size:11px;color:var(--gray);">'+(ps.salvata?'✅ Salvata':'Non salvata')+'</span>';
     var body=document.createElement('div'); body.className='partita-card-body';
     var righe='', mg=ps.minutiGiocati||{};
