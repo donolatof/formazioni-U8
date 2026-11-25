@@ -786,17 +786,12 @@ function _reportShortDate(dstr) {
 async function getReportConvocazioni() {
   var eventi = await getEventiSalvati();
   var slots = [];
-  var giorniPerGiocatore = {}; // nome -> { giornoNum: true } — un ingresso per EVENTO (non per sotto-partita del torneo)
-  var displayPerGiorno = {}; // giornoNum -> data leggibile (dd/mm/yyyy)
   eventi.forEach(ev => {
     var ts = _reportTsFromData(ev.data), daId = false;
     if (ts === null) { ts = _reportTsFromId(ev.id); daId = true; }
     // se la partita non ha una data impostata, uso quella (approssimativa) di creazione
     // dell'evento ricavata dall'id, così "Ultima convocazione" non resta mai vuota
     var dataDisplay = ev.data || _reportFmtTs(ts);
-    var giorno = Math.floor(ts / MS_GIORNO);
-    if (!displayPerGiorno[giorno]) displayPerGiorno[giorno] = dataDisplay;
-    (ev.presenti || []).forEach(n => { if (!giorniPerGiocatore[n]) giorniPerGiocatore[n] = {}; giorniPerGiocatore[n][giorno] = true; });
     // un torneo conta come UNA sola convocazione (indipendentemente da quante
     // sotto-partite/nPartite lo compongono), come una partita singola
     slots.push({ ts: ts, presenti: ev.presenti || [], dataDisplay: dataDisplay, dataApprox: daId });
@@ -814,16 +809,20 @@ async function getReportConvocazioni() {
     var convocazioni = idxs.length;
     var lastIdx = convocazioni ? idxs[idxs.length-1] : -1;
     var partiteMancate = lastIdx >= 0 ? (slots.length - 1 - lastIdx) : slots.length;
-    // doppio impegno: ogni volta che due convocazioni consecutive del giocatore (giorni
-    // distinti, non le sotto-partite dello stesso torneo) cadono lo stesso giorno o in
-    // giorni consecutivi. Qui conto TUTTI gli episodi della storia (richiesta del mister),
-    // non solo l'ultimo: a differenza del flag di prima, questo è un totale stagionale.
-    var giorni = Object.keys(giorniPerGiocatore[nome] || {}).map(Number).sort((a,b)=>a-b);
+    // doppio impegno: ogni volta che due convocazioni consecutive del giocatore (eventi,
+    // non le sotto-partite dello stesso torneo) cadono lo stesso giorno o in giorni
+    // consecutivi. Confronto evento per evento (non raggruppando per giorno), altrimenti
+    // due eventi diversi nello stesso identico giorno finirebbero per "sparire" nel
+    // confronto. Qui conto TUTTI gli episodi della storia (richiesta del mister), non solo
+    // l'ultimo: a differenza del flag di prima, questo è un totale stagionale.
     var doppioCount = 0, doppioDate = [];
-    for (var gi=1; gi<giorni.length; gi++) {
-      if (giorni[gi] - giorni[gi-1] <= 1) {
+    for (var gi=1; gi<idxs.length; gi++) {
+      var giornoCur = Math.floor(slots[idxs[gi]].ts / MS_GIORNO);
+      var giornoPrev = Math.floor(slots[idxs[gi-1]].ts / MS_GIORNO);
+      if (giornoCur - giornoPrev <= 1) {
         doppioCount++;
-        doppioDate.push(_reportShortDate(displayPerGiorno[giorni[gi-1]]) + '-' + _reportShortDate(displayPerGiorno[giorni[gi]]));
+        var dPrev = _reportShortDate(slots[idxs[gi-1]].dataDisplay), dCur = _reportShortDate(slots[idxs[gi]].dataDisplay);
+        doppioDate.push(giornoCur === giornoPrev ? dCur : (dPrev + '-' + dCur));
       }
     }
     return {
