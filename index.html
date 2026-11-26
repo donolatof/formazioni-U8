@@ -110,6 +110,7 @@
   .field-player .fp-nome{font-size:12px;font-weight:700;line-height:1.1;}
   .field-player .fp-ruolo{font-size:9px;font-weight:800;letter-spacing:.6px;padding:2px 6px;border-radius:6px;margin-top:1px;}
   .fp-ruolo.GK{background:#1565c0;color:white;}.fp-ruolo.DF{background:#e53935;color:white;}
+  .fp-ruolo.DF-SX{background:#e53935;color:white;}.fp-ruolo.DF-DX{background:#e53935;color:white;}
   .fp-ruolo.CM{background:#f5c842;color:var(--dark);}.fp-ruolo.CM-SX{background:#f5c842;color:var(--dark);}
   .fp-ruolo.CM-DX{background:#f5c842;color:var(--dark);}.fp-ruolo.AT{background:#43a047;color:white;}
   .fp-ruolo.CAM{background:var(--gray);color:white;}
@@ -295,6 +296,17 @@
     <div class="tipo-card" id="cardTorneo" onclick="setTipo('torneo')">
       <div class="check-badge">✓</div>
       <div class="tc-inner"><div class="icon-wrap">🏆</div><div class="lbl">Torneo</div><div class="sub">Più partite</div></div>
+    </div>
+  </div>
+  <div class="tipo-section-label" style="margin-top:14px;">Formato</div>
+  <div class="tipo-sel">
+    <div class="tipo-card sel" id="cardF5" onclick="setFormato(5)">
+      <div class="check-badge">✓</div>
+      <div class="tc-inner"><div class="icon-wrap">5️⃣</div><div class="lbl">Calcio a 5</div><div class="sub">1 portiere + 4</div></div>
+    </div>
+    <div class="tipo-card" id="cardF7" onclick="setFormato(7)">
+      <div class="check-badge">✓</div>
+      <div class="tc-inner"><div class="icon-wrap">7️⃣</div><div class="lbl">Calcio a 7</div><div class="sub">1 portiere + 6</div></div>
     </div>
   </div>
   <div id="storicoEventi" style="display:none;margin-bottom:20px;">
@@ -490,13 +502,13 @@ async function getEventiSalvati() {
   const eventi = [];
   (torneiData || []).forEach(t => {
     eventi.push({ id:t.id, nome:t.nome, data:fmtData(t.data), nPartite:t.n_partite,
-      segmenti:t.segmenti, durata:t.durata_tempo, tipo:'torneo',
+      segmenti:t.segmenti, durata:t.durata_tempo, tipo:'torneo', formato:t.formato||5,
       portiere:t.portiere||null, presenti:t.presenti||[] });
   });
   (partiteData || []).forEach(p => {
     if (/^T\d+_\d+$/.test(p.id)) return;
     eventi.push({ id:p.id, nome:p.nome_partita||'Partita', data:fmtData(p.data_partita),
-      nPartite:1, segmenti:p.segmenti, durata:p.durata_segmento, tipo:'partita',
+      nPartite:1, segmenti:p.segmenti, durata:p.durata_segmento, tipo:'partita', formato:p.formato||5,
       presenti:p.presenti||[], portiere:p.portiere||null, avversario:p.avversario||'',
       golSubiti:(p.gol_subiti===null||p.gol_subiti===undefined)?null:p.gol_subiti,
       marcatori:p.marcatori||[] });
@@ -521,7 +533,7 @@ async function creaTorneo(payload) {
     id: tid, nome: payload.nomeTorneo, data: payload.dataEvento || null,
     n_partite: payload.nPartite, segmenti: payload.segmenti,
     durata_tempo: payload.durataTempo, portiere: payload.portiere,
-    presenti: payload.presenti
+    presenti: payload.presenti, formato: payload.formato || 5
   });
   if (errT) throw errT;
   const rows = [], ids = [];
@@ -530,7 +542,7 @@ async function creaTorneo(payload) {
     rows.push({ id:pid, torneo_id:tid, nome_partita:'Partita '+n,
       data_partita:payload.dataEvento||null, presenti:payload.presenti,
       segmenti:payload.segmenti, durata_segmento:payload.durataTempo,
-      portiere:payload.portiere });
+      portiere:payload.portiere, formato:payload.formato||5 });
     ids.push(pid);
   }
   const { error: errP } = await sb.from('partite').insert(rows);
@@ -542,12 +554,13 @@ async function creaFormazioniPartitaTorneo(payload) {
   const id = payload.partitaId || ('P' + Date.now());
   const storico = await getRuoliStorico();
   const res = generaFormazioni(payload.presenti, payload.segmenti, payload.durataTempo,
-    payload.portiere, payload.minutiCumulativi, payload.subTempi, storico);
+    payload.portiere, payload.minutiCumulativi, payload.subTempi, storico, payload.formato);
   if (!payload.partitaId) {
     const { error } = await sb.from('partite').upsert({
       id, nome_partita:'', data_partita:null,
       presenti:payload.presenti, segmenti:payload.segmenti,
-      durata_segmento:payload.durataTempo, portiere:payload.portiere
+      durata_segmento:payload.durataTempo, portiere:payload.portiere,
+      formato:payload.formato||5
     });
     if (error) throw error;
   }
@@ -607,13 +620,21 @@ async function caricaFormazioneTorneo(torneoId) {
 // =============================================
 // LOGICA FORMAZIONI (pura — invariata)
 // =============================================
-function assegnaRuoli(movimentisti, storico) {
+function assegnaRuoli(movimentisti, storico, formato) {
   var n = movimentisti.length; if (n === 0) return [];
-  var schemi = {1:['CM'],2:['DF','AT'],3:['DF','CM','AT'],4:['DF','CM-SX','CM-DX','AT'],5:['DF','CM-SX','CM-DX','AT','CM']};
-  var ruoli = schemi[Math.min(n,5)] || schemi[5];
+  var schemi5 = {1:['CM'],2:['DF','AT'],3:['DF','CM','AT'],4:['DF','CM-SX','CM-DX','AT'],5:['DF','CM-SX','CM-DX','AT','CM']};
+  // calcio a 7 (1 portiere + 6 di movimento): schema pieno 2-3-1 (2 difensori, 3 centrocampisti,
+  // 1 attaccante); con rosa ridotta si scala sugli stessi schemi del 5 finché i movimentisti sono <=5
+  var schemi7 = Object.assign({}, schemi5, {6:['DF-SX','DF-DX','CM-SX','CM-DX','CM','AT']});
+  var maxN = formato===7 ? 6 : 5;
+  var schemi = (formato===7 ? schemi7 : schemi5);
+  var ruoli = schemi[Math.min(n,maxN)] || schemi[maxN];
   function score(nome, ruolo) {
     var st = storico[nome] || {DF:0,CM:0,AT:0}, tot = (st.DF+st.CM+st.AT)||1;
-    return (ruolo==='DF'?st.DF:(ruolo==='AT'?st.AT:st.CM)) / tot;
+    // DF-SX/DF-DX e CM-SX/CM-DX contano per la rispettiva categoria base (stessa
+    // normalizzazione usata in aggiornaRuoliStorico, per restare coerenti)
+    var cat = ruolo.replace('-SX','').replace('-DX','');
+    return (st[cat]!==undefined ? st[cat] : st.CM) / tot;
   }
   var idx = []; for (var ii=0;ii<n;ii++) idx.push(ii);
   var best = -1, bestP = idx.slice();
@@ -632,7 +653,10 @@ function assegnaRuoli(movimentisti, storico) {
   return res;
 }
 
-function generaFormazioni(presenti, segmenti, durataSeg, portiere, minutiCumulativi, subTempi, storico) {
+function generaFormazioni(presenti, segmenti, durataSeg, portiere, minutiCumulativi, subTempi, storico, formato) {
+  formato = formato===7 ? 7 : 5;
+  var movSlot = formato===7 ? 6 : 4; // giocatori di movimento in campo quando c'è un portiere fisso
+  var fullOnField = formato===7 ? 7 : 5; // totale in campo (portiere incluso) quando il portiere ruota tra i presenti
   var gkNome = (portiere && portiere.nome) ? portiere.nome : null;
   var gkNome2 = (portiere && portiere.nome2) ? portiere.nome2 : null;
   var doppio = !!(gkNome && gkNome2);
@@ -677,16 +701,16 @@ function generaFormazioni(presenti, segmenti, durataSeg, portiere, minutiCumulat
         inField.push({nome:slot.gkFisso,ruolo:'GK',minuti:slot.durata});
         var cand = movimentisti.filter(m => m !== slot.gkFisso);
         cand.sort((a,b) => (offsetMinuti[a]+minutiGiocati[a])-(offsetMinuti[b]+minutiGiocati[b]));
-        var mov = cand.slice(0,4), ra = assegnaRuoli(mov, storico||{});
+        var mov = cand.slice(0,movSlot), ra = assegnaRuoli(mov, storico||{}, formato);
         for (var mi=0;mi<mov.length;mi++) inField.push({nome:mov[mi],ruolo:ra[mi]||'CAM',minuti:slot.durata});
       } else {
         var cand2 = movimentisti.slice();
         cand2.sort((a,b) => (offsetMinuti[a]+minutiGiocati[a])-(offsetMinuti[b]+minutiGiocati[b]));
-        var cinque = cand2.slice(0,5);
-        cinque.sort((a,b) => { if(volteGK[a]!==volteGK[b])return volteGK[a]-volteGK[b]; return(offsetMinuti[a]+minutiGiocati[a])-(offsetMinuti[b]+minutiGiocati[b]); });
-        var gkRot = cinque[0], mov2 = cinque.slice(1);
+        var onField = cand2.slice(0,fullOnField);
+        onField.sort((a,b) => { if(volteGK[a]!==volteGK[b])return volteGK[a]-volteGK[b]; return(offsetMinuti[a]+minutiGiocati[a])-(offsetMinuti[b]+minutiGiocati[b]); });
+        var gkRot = onField[0], mov2 = onField.slice(1);
         inField.push({nome:gkRot,ruolo:'GK',minuti:slot.durata}); volteGK[gkRot] = (volteGK[gkRot]||0)+1;
-        var ra2 = assegnaRuoli(mov2, storico||{});
+        var ra2 = assegnaRuoli(mov2, storico||{}, formato);
         for (var mi2=0;mi2<mov2.length;mi2++) inField.push({nome:mov2[mi2],ruolo:ra2[mi2]||'CAM',minuti:slot.durata});
       }
       inFieldTempo = inField.map(p => ({nome:p.nome,ruolo:p.ruolo}));
@@ -932,7 +956,7 @@ function renderReportBody(report, totale, target) {
 // =============================================
 // VARIABILI GLOBALI UI
 // =============================================
-var allPlayers=[], playerInfo={}, tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null;
+var allPlayers=[], playerInfo={}, tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null, cfgFormato=5;
 var torneoId=null, presentiEvento=[], gkNomeAttivo='', partiteState=[], idxCorrente=0, formazioni=[], currentSeg=0, currentId=null;
 var selectedFieldPlayer=null;
 
@@ -983,7 +1007,7 @@ async function caricaStorico() {
       var icon = ev.tipo === 'torneo' ? '🏆' : '⚽';
       var info = document.createElement('div');
       info.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;';
-      info.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">'+icon+'</div><div style="min-width:0;"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+ev.nome+'</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">'+(ev.data||'–')+'&nbsp;·&nbsp;'+(ev.tipo==='torneo'?'Torneo':'Partita')+'</div></div>';
+      info.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">'+icon+'</div><div style="min-width:0;"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+ev.nome+'</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">'+(ev.data||'–')+'&nbsp;·&nbsp;'+(ev.tipo==='torneo'?'Torneo':'Partita')+'&nbsp;·&nbsp;a '+(ev.formato||5)+'</div></div>';
       info.onclick = () => ripristinaEvento(ev);
       var arrow = document.createElement('div');
       arrow.style.cssText = 'color:var(--green);font-size:20px;flex-shrink:0;cursor:pointer;'; arrow.textContent = '›';
@@ -1010,6 +1034,7 @@ async function ripristinaEvento(ev) {
   showLoading('Caricamento...');
   cfgNome=ev.nome; cfgData=ev.data; tipoEvento=ev.tipo;
   cfgTempi=parseInt(ev.segmenti)||4; cfgDurata=parseInt(ev.durata)||15; cfgNPartite=parseInt(ev.nPartite)||1;
+  cfgFormato=parseInt(ev.formato)||5; setFormato(cfgFormato);
   presentiEvento=ev.presenti||[];
   document.getElementById('nomeEvento').value=ev.nome;
   document.getElementById('numTempi').value=cfgTempi;
@@ -1067,13 +1092,23 @@ function setTipo(t) {
   document.getElementById('groupNPartite').classList.toggle('nascosto',t!=='torneo');
   document.getElementById('sb3').classList.toggle('nascosto',t!=='torneo');
   document.getElementById('labelNome').textContent=t==='torneo'?'Nome torneo':'Nome partita';
-  document.getElementById('badgeMode').textContent=t==='torneo'?'🏆 Torneo':'Partita';
+  _aggiornaBadgeMode();
   document.getElementById('btnAvvia').textContent=t==='torneo'?'⚡ Avvia Torneo':'⚡ Genera Formazioni';
   document.getElementById('nPartite').value=t==='torneo'?'3':'1';
   document.getElementById('avversarioBox').style.display=t==='partita'?'':'none';
   document.getElementById('subStep0Box').style.display=t==='partita'?'':'none';
   if(t==='partita') renderSubStep0();
   if(t==='torneo') renderGkTorneoSection(); else document.getElementById('gkTorneoSection').style.display='none';
+}
+
+function setFormato(n) {
+  cfgFormato=n;
+  document.getElementById('cardF5').classList.toggle('sel',n===5);
+  document.getElementById('cardF7').classList.toggle('sel',n===7);
+  _aggiornaBadgeMode();
+}
+function _aggiornaBadgeMode() {
+  document.getElementById('badgeMode').textContent=(tipoEvento==='torneo'?'🏆 Torneo':'Partita')+' · a'+cfgFormato;
 }
 
 function toggleGK() { var on=document.getElementById('gkEnabled').checked; document.getElementById('gkFields').classList.toggle('show',on); if(on)renderGkTempi(); }
@@ -1236,7 +1271,7 @@ async function generaConSub() {
 async function _generaPartitaConSub(idx, minutiCumulativi, subTempi) {
   showLoading('Generazione partita '+(idx+1)+'...');
   try {
-    var res = await creaFormazioniPartitaTorneo({torneoId,nPartita:idx+1,presenti:presentiEvento,segmenti:cfgTempi,durataTempo:cfgDurata,subTempi,portiere:partiteState[idx].portiere,minutiCumulativi,partitaId:partiteState[idx].id});
+    var res = await creaFormazioniPartitaTorneo({torneoId,nPartita:idx+1,presenti:presentiEvento,segmenti:cfgTempi,durataTempo:cfgDurata,subTempi,portiere:partiteState[idx].portiere,minutiCumulativi,partitaId:partiteState[idx].id,formato:cfgFormato});
     partiteState[idx].id=res.id; partiteState[idx].formazione=res.formazione;
     var mg={}; for(var i=0;i<presentiEvento.length;i++)mg[presentiEvento[i]]=0;
     for(var nome in res.minutiGiocati){if(res.minutiGiocati.hasOwnProperty(nome))mg[nome]=res.minutiGiocati[nome];}
@@ -1298,7 +1333,7 @@ async function avviaEvento() {
     for(var k=0;k<cfgNPartite;k++){var cfgP=getPortierePartita(k);partiteState.push({id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgP.nome?{nome:cfgP.nome,tempiGK:cfgP.tempiGK}:null,subTempi:cfgP.subTempi,avversario:cfgP.avversario,golSubiti:null,marcatori:[]});}
     showLoading('Creazione torneo...');
     try {
-      var res=await creaTorneo({nomeTorneo:cfgNome,dataEvento:cfgData,nPartite:cfgNPartite,segmenti:cfgTempi,durataTempo:cfgDurata,portiere:cfgPortiere,presenti:presentiEvento});
+      var res=await creaTorneo({nomeTorneo:cfgNome,dataEvento:cfgData,nPartite:cfgNPartite,segmenti:cfgTempi,durataTempo:cfgDurata,portiere:cfgPortiere,presenti:presentiEvento,formato:cfgFormato});
       torneoId=res.id;
       for(var n=0;n<res.partiteIds.length;n++)partiteState[n].id=res.partiteIds[n];
       idxCorrente=0; gkNomeAttivo=partiteState[0].portiere?partiteState[0].portiere.nome:'';
@@ -1425,12 +1460,13 @@ function renderSegmento(){
   if(seg.nSub&&seg.nSub>1)document.getElementById('segLabel').textContent='Tempo '+seg.tempo+'  —  Sez. '+seg.subIdx+'/'+seg.nSub;
   else document.getElementById('segLabel').textContent='Tempo '+(seg.tempo||seg.segmento);
   document.getElementById('segDur').textContent=seg.durata+' min';
-  var byRuolo={GK:[],DF:[],'CM-SX':[],'CM-DX':[],CM:[],AT:[],CAM:[]};
+  var byRuolo={GK:[],DF:[],'DF-SX':[],'DF-DX':[],'CM-SX':[],'CM-DX':[],CM:[],AT:[],CAM:[]};
   seg.inField.forEach(p=>{var r=p.ruolo||'CAM';if(!byRuolo[r])byRuolo[r]=[];byRuolo[r].push(p);});
   var fieldEl=document.getElementById('inField'); fieldEl.className='campo-field'; fieldEl.innerHTML='';
   var cmCentro=byRuolo['CM-SX'].concat(byRuolo['CM-DX']).concat(byRuolo['CM']);
-  var hasPosizioni=(byRuolo['DF'].length+cmCentro.length+byRuolo['AT'].length)>0;
-  var righe=hasPosizioni?[{label:'ATT',giocatori:byRuolo['AT']},{label:'CEN',giocatori:cmCentro},{label:'DIF',giocatori:byRuolo['DF']},{label:'POR',giocatori:byRuolo['GK']}]:[{label:'',giocatori:byRuolo['GK'].concat(byRuolo['CAM'])}];
+  var difTutti=byRuolo['DF'].concat(byRuolo['DF-SX']).concat(byRuolo['DF-DX']);
+  var hasPosizioni=(difTutti.length+cmCentro.length+byRuolo['AT'].length)>0;
+  var righe=hasPosizioni?[{label:'ATT',giocatori:byRuolo['AT']},{label:'CEN',giocatori:cmCentro},{label:'DIF',giocatori:difTutti},{label:'POR',giocatori:byRuolo['GK']}]:[{label:'',giocatori:byRuolo['GK'].concat(byRuolo['CAM'])}];
   righe.forEach(riga=>{
     if(!riga.giocatori.length)return;
     var rowWrap=document.createElement('div');
@@ -1731,7 +1767,7 @@ async function nuovoEvento(){
   var gkNome2Wrap2=document.getElementById('gkNome2Wrap');if(gkNome2Wrap2)gkNome2Wrap2.style.display='none';
   var gkLegend2=document.getElementById('gkLegend');if(gkLegend2)gkLegend2.style.display='none';
   var gkAlternaBtn2=document.getElementById('gkAlternaBtn');if(gkAlternaBtn2)gkAlternaBtn2.style.display='none';
-  renderSubStep0(); document.getElementById('sb3').classList.add('nascosto'); setTipo('partita');
+  renderSubStep0(); document.getElementById('sb3').classList.add('nascosto'); setTipo('partita'); setFormato(5);
   document.querySelectorAll('.player-row').forEach(r=>r.classList.remove('present')); aggiornaConteggio();
   document.getElementById('gameArea').style.display='none'; document.getElementById('subCfgBox').style.display='none'; document.getElementById('torneoNav').style.display='none';
   await caricaStorico(); goTo(0);
