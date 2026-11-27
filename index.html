@@ -64,6 +64,9 @@
   .gk-tempo-pill.gk1{background:var(--yellow);border-color:#c8a800;color:var(--dark);}
   .gk-tempo-pill.gk2{background:#1565c0;border-color:#0d47a1;color:white;}
   .gk-tutti-btn{font-size:11px;font-weight:700;color:var(--green-dark);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;margin-top:4px;}
+  .page-actions{display:flex;gap:8px;margin-bottom:14px;}
+  .btn-indietro{flex:1;padding:9px 10px;border-radius:10px;border:2px solid var(--gray-light);background:white;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;}
+  .btn-annulla{flex:1;padding:9px 10px;border-radius:10px;border:2px solid #f5c0c0;background:#fde8e8;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;}
   .gk-legend{display:flex;gap:14px;margin:6px 0 2px;font-size:11px;font-weight:700;}
   .gk-legend span{display:inline-flex;align-items:center;gap:5px;color:#7a5e00;}
   .gk-legend i{width:12px;height:12px;border-radius:4px;display:inline-block;}
@@ -113,6 +116,8 @@
   .fp-ruolo.DF-SX{background:#e53935;color:white;}.fp-ruolo.DF-DX{background:#e53935;color:white;}
   .fp-ruolo.CM{background:#f5c842;color:var(--dark);}.fp-ruolo.CM-SX{background:#f5c842;color:var(--dark);}
   .fp-ruolo.CM-DX{background:#f5c842;color:var(--dark);}.fp-ruolo.AT{background:#43a047;color:white;}
+  .fp-ruolo.CS{background:#f5c842;color:var(--dark);}.fp-ruolo.CD{background:#f5c842;color:var(--dark);}
+  .fp-ruolo.CC{background:#f5c842;color:var(--dark);}
   .fp-ruolo.CAM{background:var(--gray);color:white;}
   .bench-area{background:#f5f0e8;border:2px dashed var(--bench);border-radius:12px;padding:12px;margin-bottom:14px;}
   .bench-title{font-size:11px;font-weight:700;text-transform:uppercase;color:#7a5500;margin-bottom:8px;}
@@ -287,6 +292,7 @@
 
 <!-- VIEW 0 -->
 <div class="view active" id="view0">
+  <div class="page-actions"><button class="btn-annulla" onclick="annullaEvento()">✕ Annulla</button></div>
   <div class="tipo-section-label">Tipo di evento</div>
   <div class="tipo-sel">
     <div class="tipo-card sel" id="cardPartita" onclick="setTipo('partita')">
@@ -334,6 +340,10 @@
 
 <!-- VIEW 1 -->
 <div class="view" id="view1">
+  <div class="page-actions">
+    <button class="btn-indietro" onclick="goTo(0)">← Indietro</button>
+    <button class="btn-annulla" onclick="annullaEvento()">✕ Annulla</button>
+  </div>
   <div class="sec-title">Presenze</div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
     <div id="conteggio" class="presenze-count">0 presenti</div>
@@ -378,6 +388,10 @@
 
 <!-- VIEW 2 -->
 <div class="view" id="view2">
+  <div class="page-actions">
+    <button class="btn-indietro" onclick="goTo(1)">← Indietro</button>
+    <button class="btn-annulla" onclick="annullaEvento()">✕ Annulla</button>
+  </div>
   <div id="torneoNav" style="display:none">
     <div class="sec-title" id="torneoTitolo"></div>
     <div class="pills" id="pillsBox"></div>
@@ -421,7 +435,7 @@
   <div id="partiteCards"></div>
   <div id="riepilogoAzioniBox" style="margin-top:8px;"></div>
   <div class="spacer"></div>
-  <button class="btn btn-primary" onclick="nuovoEvento()">➕ Nuovo evento</button>
+  <button class="btn btn-primary" onclick="annullaEvento()">➕ Nuovo evento</button>
   <div class="spacer"></div>
 </div>
 
@@ -463,6 +477,17 @@ async function salvaAnagrafica(nome, campo, valore) {
   } catch(e) { alert('Errore salvataggio: ' + e.message); }
 }
 
+// Mappa ogni etichetta di ruolo visualizzata (comprese le varianti laterali DF-SX/DF-DX,
+// CM-SX/CM-DX e le nuove CS/CD/CC del calcio a 7) alla categoria base usata per il
+// bilanciamento storico DF/CM/AT. Match esatto, non substring-replace, così anche
+// etichette come "CS"/"CD" (che non contengono "-SX"/"-DX") vengono normalizzate.
+var RUOLO_CATEGORIE = {
+  'DF':'DF','DF-SX':'DF','DF-DX':'DF',
+  'CM':'CM','CM-SX':'CM','CM-DX':'CM','CS':'CM','CD':'CM','CC':'CM',
+  'AT':'AT'
+};
+function _ruoloCategoria(ruolo) { return RUOLO_CATEGORIE[ruolo] || ruolo; }
+
 async function getRuoliStorico() {
   const { data, error } = await sb.from('ruoli').select('nome,df,cm,at');
   if (error) throw error;
@@ -477,7 +502,7 @@ async function aggiornaRuoliStorico(formazione) {
     seg.inField.forEach(p => {
       if (p.ruolo === 'GK') return;
       if (!conteggi[p.nome]) conteggi[p.nome] = { DF:0, CM:0, AT:0 };
-      const r = p.ruolo.replace('-SX','').replace('-DX','');
+      const r = _ruoloCategoria(p.ruolo);
       if (conteggi[p.nome][r] !== undefined) conteggi[p.nome][r]++;
     });
   });
@@ -503,7 +528,7 @@ async function getEventiSalvati() {
   (torneiData || []).forEach(t => {
     eventi.push({ id:t.id, nome:t.nome, data:fmtData(t.data), nPartite:t.n_partite,
       segmenti:t.segmenti, durata:t.durata_tempo, tipo:'torneo', formato:t.formato||5,
-      portiere:t.portiere||null, presenti:t.presenti||[] });
+      portiere:t.portiere||null, presenti:t.presenti||[], pianoPartite:t.piano_partite||[] });
   });
   (partiteData || []).forEach(p => {
     if (/^T\d+_\d+$/.test(p.id)) return;
@@ -523,30 +548,24 @@ async function getEventiSalvati() {
 }
 
 async function eliminaEvento(idEvento) {
+  // cancellazione fisica (DELETE vero, non un flag): rimuove anche le sotto-partite
+  // di un torneo e le rispettive formazioni, che prima restavano orfane nel database.
+  const { data: subPartite } = await sb.from('partite').select('id').eq('torneo_id', idEvento);
+  const ids = [idEvento].concat((subPartite || []).map(p => p.id));
+  await sb.from('formazioni').delete().in('partita_id', ids);
+  await sb.from('partite').delete().in('id', ids);
   await sb.from('tornei').delete().eq('id', idEvento);
-  await sb.from('partite').delete().eq('id', idEvento);
 }
 
+// Nulla viene scritto su Supabase finché l'utente non preme "Salva" sulla singola
+// partita/sotto-partita (vedi salvaFormazione): creaTorneo e
+// creaFormazioniPartitaTorneo calcolano solo gli id e generano la formazione in
+// memoria, senza alcuna scrittura. Così, se si chiude l'app prima di salvare, non
+// resta nulla nel database.
 async function creaTorneo(payload) {
   const tid = 'T' + Date.now();
-  const { error: errT } = await sb.from('tornei').insert({
-    id: tid, nome: payload.nomeTorneo, data: payload.dataEvento || null,
-    n_partite: payload.nPartite, segmenti: payload.segmenti,
-    durata_tempo: payload.durataTempo, portiere: payload.portiere,
-    presenti: payload.presenti, formato: payload.formato || 5
-  });
-  if (errT) throw errT;
-  const rows = [], ids = [];
-  for (let n = 1; n <= payload.nPartite; n++) {
-    const pid = tid + '_' + n;
-    rows.push({ id:pid, torneo_id:tid, nome_partita:'Partita '+n,
-      data_partita:payload.dataEvento||null, presenti:payload.presenti,
-      segmenti:payload.segmenti, durata_segmento:payload.durataTempo,
-      portiere:payload.portiere, formato:payload.formato||5 });
-    ids.push(pid);
-  }
-  const { error: errP } = await sb.from('partite').insert(rows);
-  if (errP) throw errP;
+  const ids = [];
+  for (let n = 1; n <= payload.nPartite; n++) ids.push(tid + '_' + n);
   return { id: tid, partiteIds: ids };
 }
 
@@ -555,27 +574,61 @@ async function creaFormazioniPartitaTorneo(payload) {
   const storico = await getRuoliStorico();
   const res = generaFormazioni(payload.presenti, payload.segmenti, payload.durataTempo,
     payload.portiere, payload.minutiCumulativi, payload.subTempi, storico, payload.formato);
-  if (!payload.partitaId) {
-    const { error } = await sb.from('partite').upsert({
-      id, nome_partita:'', data_partita:null,
-      presenti:payload.presenti, segmenti:payload.segmenti,
-      durata_segmento:payload.durataTempo, portiere:payload.portiere,
-      formato:payload.formato||5
-    });
-    if (error) throw error;
-  }
   return { id, formazione: res.formazione, minutiGiocati: res.minutiGiocati };
 }
 
+// Istantanea della pianificazione di TUTTE le partite del torneo (avversario,
+// portiere assegnato, suddivisioni dei tempi) — comprese quelle non ancora
+// generate/giocate. Viene salvata insieme al torneo (vedi salvaFormazione) così
+// la pianificazione fatta in anticipo sopravvive anche se l'app viene chiusa
+// prima di arrivare a quella partita.
+function _buildPianoPartite() {
+  return partiteState.map(ps => ({
+    avversario: (ps && ps.avversario) || '',
+    portiere: (ps && ps.portiere) || null,
+    subTempi: (ps && ps.subTempi) || null
+  }));
+}
+
+// Se è un torneo e la riga su "tornei" non è ancora stata scritta (primo salvataggio
+// di una sua sotto-partita), la crea ora. Per un torneo recuperato da "Recupera
+// evento salvato" la riga esiste già (altrimenti il torneo non comparirebbe in
+// elenco), quindi torneoPersistito viene già impostato a true in quel caso.
+async function _assicuraTorneoSalvato() {
+  if (torneoPersistito || tipoEvento !== 'torneo') return;
+  const { error } = await sb.from('tornei').insert({
+    id: torneoId, nome: cfgNome, data: cfgData || null,
+    n_partite: cfgNPartite, segmenti: cfgTempi, durata_tempo: cfgDurata,
+    portiere: cfgPortiere, presenti: presentiEvento, formato: cfgFormato,
+    piano_partite: _buildPianoPartite()
+  });
+  if (error) throw error;
+  torneoPersistito = true;
+}
+
 async function salvaFormazione(id, formazione, minutiGiocati, datiExtra) {
-  const upd = {};
-  if (datiExtra.nome) upd.nome_partita = datiExtra.nome;
-  if (datiExtra.data) upd.data_partita = datiExtra.data;
-  if (datiExtra.avversario) upd.avversario = datiExtra.avversario;
-  if (Object.keys(upd).length) {
-    const { error } = await sb.from('partite').update(upd).eq('id', id);
-    if (error) throw error;
+  if (tipoEvento === 'torneo') {
+    await _assicuraTorneoSalvato();
+    // tiene aggiornato il piano dell'intero torneo (comprese le partite non ancora
+    // generate) a ogni salvataggio, così eventuali modifiche fatte strada facendo
+    // (es. cambio avversario) restano al sicuro insieme alla partita appena salvata
+    const { error: errPiano } = await sb.from('tornei').update({ piano_partite: _buildPianoPartite() }).eq('id', torneoId);
+    if (errPiano) throw errPiano;
   }
+  const row = {
+    id,
+    torneo_id: tipoEvento === 'torneo' ? torneoId : null,
+    nome_partita: datiExtra.nome || '',
+    data_partita: datiExtra.data || null,
+    presenti: presentiEvento,
+    segmenti: cfgTempi,
+    durata_segmento: cfgDurata,
+    portiere: datiExtra.portiere || null,
+    avversario: datiExtra.avversario || '',
+    formato: cfgFormato
+  };
+  const { error: errP } = await sb.from('partite').upsert(row);
+  if (errP) throw errP;
   const { error: errF } = await sb.from('formazioni').upsert(
     { partita_id:id, segmenti:formazione, minuti_giocati:minutiGiocati },
     { onConflict: 'partita_id' }
@@ -624,16 +677,17 @@ function assegnaRuoli(movimentisti, storico, formato) {
   var n = movimentisti.length; if (n === 0) return [];
   var schemi5 = {1:['CM'],2:['DF','AT'],3:['DF','CM','AT'],4:['DF','CM-SX','CM-DX','AT'],5:['DF','CM-SX','CM-DX','AT','CM']};
   // calcio a 7 (1 portiere + 6 di movimento): schema pieno 2-3-1 (2 difensori, 3 centrocampisti,
-  // 1 attaccante); con rosa ridotta si scala sugli stessi schemi del 5 finché i movimentisti sono <=5
-  var schemi7 = Object.assign({}, schemi5, {6:['DF-SX','DF-DX','CM-SX','CM-DX','CM','AT']});
+  // 1 attaccante). Etichette dei centrocampisti dedicate (CS/CD/CC, non le CM-SX/CM-DX/CM del
+  // 5) a ogni numero di movimentisti, così restano coerenti anche con rosa ridotta.
+  var schemi7 = {1:['CC'],2:['DF','AT'],3:['DF','CC','AT'],4:['DF','CS','CD','AT'],5:['DF','CS','CD','AT','CC'],6:['DF-SX','DF-DX','CS','CD','CC','AT']};
   var maxN = formato===7 ? 6 : 5;
   var schemi = (formato===7 ? schemi7 : schemi5);
   var ruoli = schemi[Math.min(n,maxN)] || schemi[maxN];
   function score(nome, ruolo) {
     var st = storico[nome] || {DF:0,CM:0,AT:0}, tot = (st.DF+st.CM+st.AT)||1;
-    // DF-SX/DF-DX e CM-SX/CM-DX contano per la rispettiva categoria base (stessa
+    // DF-SX/DF-DX, CM-SX/CM-DX e CS/CD/CC contano per la rispettiva categoria base (stessa
     // normalizzazione usata in aggiornaRuoliStorico, per restare coerenti)
-    var cat = ruolo.replace('-SX','').replace('-DX','');
+    var cat = _ruoloCategoria(ruolo);
     return (st[cat]!==undefined ? st[cat] : st.CM) / tot;
   }
   var idx = []; for (var ii=0;ii<n;ii++) idx.push(ii);
@@ -956,7 +1010,7 @@ function renderReportBody(report, totale, target) {
 // =============================================
 // VARIABILI GLOBALI UI
 // =============================================
-var allPlayers=[], playerInfo={}, tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null, cfgFormato=5;
+var allPlayers=[], playerInfo={}, tipoEvento='partita', cfgNome='', cfgData='', cfgTempi=4, cfgDurata=15, cfgNPartite=1, cfgPortiere=null, cfgFormato=5, torneoPersistito=false;
 var torneoId=null, presentiEvento=[], gkNomeAttivo='', partiteState=[], idxCorrente=0, formazioni=[], currentSeg=0, currentId=null;
 var selectedFieldPlayer=null;
 
@@ -1042,15 +1096,38 @@ async function ripristinaEvento(ev) {
   try {
     if (ev.tipo === 'torneo') {
       torneoId = ev.id; cfgPortiere = null;
-      var partite = await caricaFormazioneTorneo(ev.id);
+      // la riga "tornei" esiste già (altrimenti l'evento non sarebbe nello storico),
+      // quindi non va ricreata al primo salvataggio di una sotto-partita
+      torneoPersistito = true;
+      var partiteSalvate = await caricaFormazioneTorneo(ev.id);
       hideLoading();
-      if (!partite || !partite.length) { goTo(1); return; }
-      partiteState=partite; idxCorrente=0; formazioni=partiteState[0].formazione; currentId=partiteState[0].id;
-      gkNomeAttivo=partiteState[0].portiere?partiteState[0].portiere.nome:'';
+      // completa fino a cfgNPartite: le sotto-partite non ancora salvate (mai scritte
+      // su Supabase, per lo stesso motivo per cui niente viene salvato senza premere
+      // "Salva") diventano slot vuoti da configurare/generare di nuovo, esattamente
+      // come un torneo appena iniziato
+      var perIndice = {};
+      partiteSalvate.forEach(p => { var m=/_(\d+)$/.exec(p.id); if (m) perIndice[parseInt(m[1],10)] = p; });
+      // per le sotto-partite non ancora salvate, recupera dal piano del torneo
+      // (avversario/portiere/suddivisioni pianificati in anticipo) invece di
+      // lasciarle completamente vuote
+      var piano = ev.pianoPartite || [];
+      var partite = [];
+      for (var npt=1; npt<=cfgNPartite; npt++) {
+        if (perIndice[npt]) { partite.push(perIndice[npt]); continue; }
+        var pianoM = piano[npt-1] || {};
+        partite.push({ id:ev.id+'_'+npt, formazione:[], minutiGiocati:{}, salvata:false,
+          portiere:pianoM.portiere||null, subTempi:pianoM.subTempi||null, avversario:pianoM.avversario||'',
+          golSubiti:null, marcatori:[] });
+      }
+      partiteState=partite;
+      // riprende dalla prima sotto-partita non ancora salvata, non necessariamente dalla prima
+      idxCorrente=partite.findIndex(p=>!p.salvata); if (idxCorrente===-1) idxCorrente=partite.length-1;
+      formazioni=partiteState[idxCorrente].formazione; currentId=partiteState[idxCorrente].id;
+      gkNomeAttivo=partiteState[idxCorrente].portiere?partiteState[idxCorrente].portiere.nome:'';
       document.getElementById('subCfgBox').style.display='none';
-      document.getElementById('gameArea').style.display=partiteState[0].formazione.length?'block':'none';
+      document.getElementById('gameArea').style.display=partiteState[idxCorrente].formazione.length?'block':'none';
       _renderTorneoNav(partite.length); document.getElementById('sb3').classList.remove('nascosto'); goTo(2);
-      if (partiteState[0].formazione.length) _caricaPartitaPost(0); else _mostraSubCfg(0);
+      if (partiteState[idxCorrente].formazione.length) _caricaPartitaPost(idxCorrente); else _mostraSubCfg(idxCorrente);
     } else {
       var gkCheck=document.getElementById('gkEnabled'), gkInput=document.getElementById('gkNome'), gkFieldsEl=document.getElementById('gkFields');
       if (ev.portiere && ev.portiere.nome) {
@@ -1329,7 +1406,7 @@ async function avviaEvento() {
     }
   }
   if(tipoEvento==='torneo'){
-    partiteState=[];
+    partiteState=[]; torneoId=null; torneoPersistito=false;
     for(var k=0;k<cfgNPartite;k++){var cfgP=getPortierePartita(k);partiteState.push({id:null,formazione:[],minutiGiocati:{},salvata:false,portiere:cfgP.nome?{nome:cfgP.nome,tempiGK:cfgP.tempiGK}:null,subTempi:cfgP.subTempi,avversario:cfgP.avversario,golSubiti:null,marcatori:[]});}
     showLoading('Creazione torneo...');
     try {
@@ -1460,10 +1537,13 @@ function renderSegmento(){
   if(seg.nSub&&seg.nSub>1)document.getElementById('segLabel').textContent='Tempo '+seg.tempo+'  —  Sez. '+seg.subIdx+'/'+seg.nSub;
   else document.getElementById('segLabel').textContent='Tempo '+(seg.tempo||seg.segmento);
   document.getElementById('segDur').textContent=seg.durata+' min';
-  var byRuolo={GK:[],DF:[],'DF-SX':[],'DF-DX':[],'CM-SX':[],'CM-DX':[],CM:[],AT:[],CAM:[]};
+  var byRuolo={GK:[],DF:[],'DF-SX':[],'DF-DX':[],'CM-SX':[],'CM-DX':[],CM:[],CS:[],CD:[],CC:[],AT:[],CAM:[]};
   seg.inField.forEach(p=>{var r=p.ruolo||'CAM';if(!byRuolo[r])byRuolo[r]=[];byRuolo[r].push(p);});
   var fieldEl=document.getElementById('inField'); fieldEl.className='campo-field'; fieldEl.innerHTML='';
-  var cmCentro=byRuolo['CM-SX'].concat(byRuolo['CM-DX']).concat(byRuolo['CM']);
+  // ordine sinistra→centro→destra: le due nomenclature (CM-SX/CM-DX/CM del 5,
+  // CS/CD/CC del 7) non convivono mai nella stessa partita, quindi concatenarle
+  // non mescola etichette diverse ma mantiene comunque la posizione corretta
+  var cmCentro=byRuolo['CM-SX'].concat(byRuolo['CS'],byRuolo['CC'],byRuolo['CM'],byRuolo['CM-DX'],byRuolo['CD']);
   var difTutti=byRuolo['DF'].concat(byRuolo['DF-SX']).concat(byRuolo['DF-DX']);
   var hasPosizioni=(difTutti.length+cmCentro.length+byRuolo['AT'].length)>0;
   var righe=hasPosizioni?[{label:'ATT',giocatori:byRuolo['AT']},{label:'CEN',giocatori:cmCentro},{label:'DIF',giocatori:difTutti},{label:'POR',giocatori:byRuolo['GK']}]:[{label:'',giocatori:byRuolo['GK'].concat(byRuolo['CAM'])}];
@@ -1540,7 +1620,7 @@ async function salvaPartita(){
   var nomeVisuale = (tipoEvento==='torneo')
     ? (avversario?'Partita '+(idxCorrente+1)+' vs '+avversario:'Partita '+(idxCorrente+1))
     : (cfgNome || (avversario?('vs '+avversario):'Partita'));
-  var extra={nome:nomeVisuale,data:document.getElementById('dataEvento').value,avversario};
+  var extra={nome:nomeVisuale,data:document.getElementById('dataEvento').value,avversario,portiere:ps.portiere||cfgPortiere||null};
   partiteState[idxCorrente].formazione=formazioni; _ricalcolaMinuti();
   showLoading('Salvataggio...');
   try {
@@ -1755,8 +1835,15 @@ async function salvaRisultatoStandalone(r) {
     if (error) throw error;
   } catch(e) { alert('Errore salvataggio risultato: ' + e.message); }
 }
+// Conferma e scarta l'evento in corso: utile perché, con il salvataggio differito
+// (nulla viene scritto su Supabase prima di "Salva"), premere "Nuovo evento"/tornare
+// all'inizio mentre c'è una formazione generata ma non ancora salvata la perderebbe.
+function annullaEvento(){
+  if(!confirm('Vuoi annullare e tornare all\'inizio? Le formazioni non ancora salvate andranno perse.'))return;
+  nuovoEvento();
+}
 async function nuovoEvento(){
-  torneoId=null;presentiEvento=[];gkNomeAttivo='';partiteState=[];idxCorrente=0;formazioni=[];currentSeg=0;currentId=null;cfgPortiere=null;selectedFieldPlayer=null;
+  torneoId=null;presentiEvento=[];gkNomeAttivo='';partiteState=[];idxCorrente=0;formazioni=[];currentSeg=0;currentId=null;cfgPortiere=null;selectedFieldPlayer=null;torneoPersistito=false;
   document.getElementById('nomeEvento').value=''; document.getElementById('numTempi').value='4'; document.getElementById('durataT').value='15';
   document.getElementById('nPartite').value='1'; document.getElementById('gkEnabled').checked=false;
   document.getElementById('gkFields').classList.remove('show'); document.getElementById('gkTempiGrid').innerHTML='';
