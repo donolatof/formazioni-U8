@@ -273,6 +273,7 @@
   <div class="ball">⚽</div>
   <div><h1>Formazioni</h1><p>Calcio 5 – Under 9</p></div>
   <div class="badge" id="badgeMode">Partita</div>
+  <button class="btn-rosa" onclick="goTo(0)" title="Torna alla prima pagina">🏠</button>
   <button class="btn-rosa" onclick="apriRisultati()" title="Risultati e marcatori">⚽</button>
   <button class="btn-rosa" onclick="apriReport()" title="Report convocazioni">📊</button>
   <button class="btn-rosa" onclick="apriRosa()" title="Gestisci rosa">👤</button>
@@ -1611,14 +1612,23 @@ function renderMinutiPartita(){
     grid.appendChild(row);
   });
 }
+// Nome da mostrare per una partita singola (non torneo): se ci sono sia il nome
+// scritto dall'utente sia l'avversario, li concatena ("Amichevole vs Real Madrid");
+// altrimenti usa quello disponibile, o "Partita" se non c'è nessuno dei due.
+function _nomeVisualePartitaSingola(nome, avversario) {
+  if (nome && avversario) return nome + ' vs ' + avversario;
+  if (nome) return nome;
+  if (avversario) return 'vs ' + avversario;
+  return 'Partita';
+}
 async function salvaPartita(){
   var ps=partiteState[idxCorrente], avversario=ps.avversario||'';
   // per un torneo ogni sotto-partita si chiama "Partita N" (il nome vero è quello del
   // torneo, cfgNome); per una partita singola invece usiamo il nome scritto dall'utente
-  // nel campo "Nome partita" (cfgNome), non un'etichetta generica
+  // nel campo "Nome partita" (cfgNome), eventualmente unito all'avversario
   var nomeVisuale = (tipoEvento==='torneo')
     ? (avversario?'Partita '+(idxCorrente+1)+' vs '+avversario:'Partita '+(idxCorrente+1))
-    : (cfgNome || (avversario?('vs '+avversario):'Partita'));
+    : _nomeVisualePartitaSingola(cfgNome, avversario);
   var extra={nome:nomeVisuale,data:document.getElementById('dataEvento').value,avversario,portiere:ps.portiere||cfgPortiere||null};
   partiteState[idxCorrente].formazione=formazioni; _ricalcolaMinuti();
   showLoading('Salvataggio...');
@@ -1689,7 +1699,7 @@ function renderPartiteCards(){
     var header=document.createElement('div'); header.className='partita-card-header';
     var nomeCard = (tipoEvento==='torneo')
       ? (ps.avversario?'Partita '+(idx+1)+' vs '+ps.avversario:'Partita '+(idx+1))
-      : (cfgNome || (ps.avversario?('vs '+ps.avversario):'Partita'));
+      : _nomeVisualePartitaSingola(cfgNome, ps.avversario);
     header.innerHTML='<strong>'+nomeCard+'</strong><span style="font-size:11px;color:var(--gray);">'+(ps.salvata?'✅ Salvata':'Non salvata')+'</span>';
     var body=document.createElement('div'); body.className='partita-card-body';
     var righe='', mg=ps.minutiGiocati||{};
