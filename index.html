@@ -219,6 +219,9 @@
   .risultato-tempo-head .risultato-score b{font-size:17px;}
   .risultato-tempo-rm{background:none;border:none;font-size:14px;cursor:pointer;color:var(--gray);padding:2px 4px;}
   .risultato-add-tempo{display:block;width:100%;margin-top:10px;background:none;border:2px dashed var(--gray-light);color:var(--green-dark);border-radius:10px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;}
+  .risultati-sezione-titolo{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);margin:16px 0 8px;}
+  .risultati-sezione-titolo:first-child{margin-top:0;}
+  .risultati-sezione-count{background:var(--gray-light);color:var(--text);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:2px;}
   .risultati-list{background:white;border:2px solid var(--gray-light);border-radius:14px;overflow:hidden;}
   .risultati-item{border-bottom:1px solid var(--gray-light);}
   .risultati-item:last-child{border-bottom:none;}
@@ -462,7 +465,15 @@ async function getGiocatori() {
   if (error) throw error;
   playerInfo = {};
   (data || []).forEach(r => { playerInfo[r.nome] = { numero:r.numero_maglia, nascita:r.data_nascita, tessera:r.tessera_figc }; });
-  return (data || []).map(r => r.nome);
+  // rosa ordinata per numero di maglia: chi non ne ha ancora uno assegnato va in
+  // fondo, in ordine alfabetico tra loro
+  return (data || []).map(r => r.nome).sort(_confrontaPerNumeroMaglia);
+}
+function _confrontaPerNumeroMaglia(a, b) {
+  var na = (playerInfo[a] && playerInfo[a].numero != null) ? playerInfo[a].numero : Infinity;
+  var nb = (playerInfo[b] && playerInfo[b].numero != null) ? playerInfo[b].numero : Infinity;
+  if (na !== nb) return na - nb;
+  return a.localeCompare(b);
 }
 async function salvaAnagrafica(nome, campo, valore) {
   var upd = {}; upd[campo] = valore === '' ? null : (campo === 'numero_maglia' ? parseInt(valore) : valore);
@@ -474,6 +485,10 @@ async function salvaAnagrafica(nome, campo, valore) {
     if (campo === 'numero_maglia') playerInfo[nome].numero = upd[campo];
     else if (campo === 'data_nascita') playerInfo[nome].nascita = upd[campo];
     else if (campo === 'tessera_figc') playerInfo[nome].tessera = upd[campo];
+    // riordina subito la rosa nel modulo Rosa; la lista Presenze (se aperta con
+    // delle spunte già fatte) si aggiorna da sola al prossimo evento, per non
+    // perdere le selezioni già fatte ricreandola da zero ora
+    if (campo === 'numero_maglia') { allPlayers.sort(_confrontaPerNumeroMaglia); renderRosa(); }
   } catch(e) { alert('Errore salvataggio: ' + e.message); }
 }
 
@@ -1059,9 +1074,12 @@ async function caricaStorico() {
       var item = document.createElement('div');
       item.style.cssText = 'background:white;padding:11px 14px;border-radius:12px;border:2px solid var(--gray-light);display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.06);gap:8px;';
       var icon = ev.tipo === 'torneo' ? '🏆' : '⚽';
+      // per l'elenco mostra nome+avversario concatenati (ev.nome da solo resta il valore
+      // "grezzo", serve a precompilare il campo "Nome partita" quando si riprende l'evento)
+      var nomeMostrato = ev.tipo === 'partita' ? _nomeConAvversarioSalvato(ev.nome, ev.avversario) : ev.nome;
       var info = document.createElement('div');
       info.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;';
-      info.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">'+icon+'</div><div style="min-width:0;"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+ev.nome+'</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">'+(ev.data||'–')+'&nbsp;·&nbsp;'+(ev.tipo==='torneo'?'Torneo':'Partita')+'&nbsp;·&nbsp;a '+(ev.formato||5)+'</div></div>';
+      info.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">'+icon+'</div><div style="min-width:0;"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+nomeMostrato+'</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">'+(ev.data||'–')+'&nbsp;·&nbsp;'+(ev.tipo==='torneo'?'Torneo':'Partita')+'&nbsp;·&nbsp;a '+(ev.formato||5)+'</div></div>';
       info.onclick = () => ripristinaEvento(ev);
       var arrow = document.createElement('div');
       arrow.style.cssText = 'color:var(--green);font-size:20px;flex-shrink:0;cursor:pointer;'; arrow.textContent = '›';
@@ -1621,13 +1639,35 @@ function _nomeVisualePartitaSingola(nome, avversario) {
   if (avversario) return 'vs ' + avversario;
   return 'Partita';
 }
+// Nome da mostrare per una riga già salvata (colonna nome_partita + avversario),
+// usata ovunque si elenchino partite già concluse (Risultati, Recupera evento
+// salvato). In tanti casi "Nome partita" contiene già un "vs Avversario" scritto
+// a mano dall'utente (es. "Campionato vs Folgore Caratese"), testualmente
+// diverso dal campo Avversario a parte (es. "Folgore Caratese SqB" per esteso):
+// se è già così, va mostrato così com'è, altrimenti si otterrebbero doppioni
+// tipo "Campionato vs Folgore Caratese vs Folgore Caratese SqB". L'avversario
+// viene aggiunto solo quando "Nome partita" non contiene già un "vs".
+function _nomeConAvversarioSalvato(nomePartita, avversario) {
+  var np = nomePartita || '';
+  if (np && /\bvs\b/i.test(np)) return np;
+  if (avversario) return np ? (np + ' vs ' + avversario) : ('vs ' + avversario);
+  return np || 'Partita';
+}
+// Nome da mostrare/salvare per una sotto-partita di torneo: nome del torneo +
+// avversario quando c'è ("Torneo Folgore vs Forza e Costanza"), altrimenti nome
+// del torneo + numero progressivo ("Torneo Folgore - Partita 2") per restare
+// distinguibile anche senza avversario.
+function _nomeVisualeTorneo(nomeTorneo, idx, avversario) {
+  var base = nomeTorneo || 'Torneo';
+  return avversario ? (base + ' vs ' + avversario) : (base + ' - Partita ' + (idx + 1));
+}
 async function salvaPartita(){
   var ps=partiteState[idxCorrente], avversario=ps.avversario||'';
-  // per un torneo ogni sotto-partita si chiama "Partita N" (il nome vero è quello del
-  // torneo, cfgNome); per una partita singola invece usiamo il nome scritto dall'utente
-  // nel campo "Nome partita" (cfgNome), eventualmente unito all'avversario
+  // per un torneo il nome è quello del torneo (cfgNome) unito all'avversario; per una
+  // partita singola invece usiamo il nome scritto dall'utente nel campo "Nome partita"
+  // (cfgNome), eventualmente unito all'avversario
   var nomeVisuale = (tipoEvento==='torneo')
-    ? (avversario?'Partita '+(idxCorrente+1)+' vs '+avversario:'Partita '+(idxCorrente+1))
+    ? _nomeVisualeTorneo(cfgNome, idxCorrente, avversario)
     : _nomeVisualePartitaSingola(cfgNome, avversario);
   var extra={nome:nomeVisuale,data:document.getElementById('dataEvento').value,avversario,portiere:ps.portiere||cfgPortiere||null};
   partiteState[idxCorrente].formazione=formazioni; _ricalcolaMinuti();
@@ -1698,7 +1738,7 @@ function renderPartiteCards(){
     var card=document.createElement('div'); card.className='partita-card';
     var header=document.createElement('div'); header.className='partita-card-header';
     var nomeCard = (tipoEvento==='torneo')
-      ? (ps.avversario?'Partita '+(idx+1)+' vs '+ps.avversario:'Partita '+(idx+1))
+      ? _nomeVisualeTorneo(cfgNome, idx, ps.avversario)
       : _nomeVisualePartitaSingola(cfgNome, ps.avversario);
     header.innerHTML='<strong>'+nomeCard+'</strong><span style="font-size:11px;color:var(--gray);">'+(ps.salvata?'✅ Salvata':'Non salvata')+'</span>';
     var body=document.createElement('div'); body.className='partita-card-body';
@@ -1712,9 +1752,9 @@ function renderPartiteCards(){
 // =============================================
 // RISULTATI E MARCATORI (sezione a parte, indipendente dal Riepilogo)
 // =============================================
-var risultatiData=[], risultatiApertoId=null, risultatiPickerId=null;
+var risultatiData=[], risultatiApertoId=null, risultatiPickerId=null, risultatiModificaId=null;
 function apriRisultati() {
-  risultatiApertoId=null; risultatiPickerId=null;
+  risultatiApertoId=null; risultatiPickerId=null; risultatiModificaId=null;
   document.getElementById('modalRisultati').classList.add('open');
   var body=document.getElementById('risultatiBody');
   body.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Caricamento...</div>';
@@ -1733,20 +1773,32 @@ async function getPartiteRisultati() {
     var torneo = mTorneo ? torneiMap[mTorneo[1]] : null;
     var dataStr = fmtData(p.data_partita) || (torneo ? fmtData(torneo.data) : '') || '';
     var presenti = (p.presenti && p.presenti.length) ? p.presenti : (torneo ? (torneo.presenti||[]) : []);
-    var nome = torneo
-      ? (torneo.nome + ' · Partita ' + mTorneo[2] + (p.avversario ? ' vs ' + p.avversario : ''))
-      : (p.avversario ? ('vs ' + p.avversario) : (p.nome_partita || 'Partita'));
+    // Stesso formato "Nome partita vs Avversario" ovunque, torneo o partita singola
+    // che sia (niente più prefisso col nome del torneo davanti)
+    var nome = _nomeConAvversarioSalvato(p.nome_partita, p.avversario);
     var ts = _reportTsFromData(dataStr); if (ts === null) ts = _reportTsFromId(p.id);
     var hasRis = p.gol_subiti!==null && p.gol_subiti!==undefined;
     var tempi = (p.tempi && p.tempi.length)
       ? p.tempi.map(t=>({ marcatori:(t.marcatori||[]).slice(), golSubiti:t.golSubiti||0 }))
       : (hasRis ? [{ marcatori:(p.marcatori||[]).slice(), golSubiti:p.gol_subiti }] : []);
-    return { id:p.id, nome, data:dataStr, presenti, ts,
+    return { id:p.id, nome, nomePartitaRaw:p.nome_partita||'', avversario:p.avversario||'',
+      data:dataStr, dataIso:p.data_partita||'', isTorneo:!!torneo, presenti, ts,
       golSubiti:hasRis?p.gol_subiti:null,
       marcatori:p.marcatori||[], tempi };
   });
   rows.sort((a,b)=>b.ts-a.ts);
   return rows;
+}
+// Sezione (Campionato / Amichevole / Torneo / Altro) a cui appartiene una riga,
+// per raggrupparle nell'elenco Risultati. Le sotto-partite di torneo si
+// riconoscono dall'id; le partite singole dalla parola scritta all'inizio di
+// "Nome partita" (prima dell'eventuale "vs Avversario").
+function _categoriaRisultato(r) {
+  if (r.isTorneo) return 'torneo';
+  var prima = (r.nomePartitaRaw || '').split(/\bvs\b/i)[0].trim().toLowerCase();
+  if (prima.indexOf('campionato') >= 0) return 'campionato';
+  if (prima.indexOf('amichevole') >= 0) return 'amichevole';
+  return 'altro';
 }
 function _ricalcolaRisultato(r) {
   r.marcatori = []; var tot=0;
@@ -1759,17 +1811,37 @@ function renderRisultatiBody() {
     body.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;">Nessuna partita salvata.<br>Genera e salva almeno una partita per inserire un risultato.</div>';
     return;
   }
-  var html='<div class="risultati-list">';
-  risultatiData.forEach((r,idx)=>{
-    var aperto = risultatiApertoId===r.id;
-    var hasRis = r.golSubiti!==null && r.golSubiti!==undefined;
-    var badge = hasRis ? ('<b>'+(r.marcatori||[]).length+'</b>&nbsp;–&nbsp;<b>'+r.golSubiti+'</b>') : '<span style="color:var(--gray);font-size:12px;">nessun risultato</span>';
-    html += '<div class="risultati-item">'
-      + '<div class="risultati-item-top" data-rrow="'+idx+'"><div><div class="risultati-nome">'+r.nome+'</div><div class="risultati-data">'+(r.data||'')+'</div></div><div class="risultati-badge">'+badge+'</div></div>'
-      + (aperto ? renderRisultatoBoxStandalone(r, idx) : '')
-      + '</div>';
+  // Raggruppa in 3 sezioni (più un'eventuale "Altro" se qualche partita non
+  // rientra in nessuna delle tre) mantenendo l'indice originale in
+  // risultatiData, così tutta la logica di apertura/modifica/risultato sotto
+  // continua a funzionare senza ricalcolare nulla.
+  var gruppi = { campionato:[], amichevole:[], torneo:[], altro:[] };
+  risultatiData.forEach((r,idx)=>{ gruppi[_categoriaRisultato(r)].push(idx); });
+  var sezioni = [
+    { label:'🏅 Campionato', idxs:gruppi.campionato },
+    { label:'🤝 Amichevole', idxs:gruppi.amichevole },
+    { label:'🏆 Tornei', idxs:gruppi.torneo },
+    { label:'📋 Altro', idxs:gruppi.altro }
+  ];
+  var html='';
+  sezioni.forEach(sez=>{
+    if (!sez.idxs.length) return;
+    html += '<div class="risultati-sezione-titolo">'+sez.label+' <span class="risultati-sezione-count">'+sez.idxs.length+'</span></div><div class="risultati-list">';
+    sez.idxs.forEach(idx=>{
+      var r=risultatiData[idx];
+      var aperto = risultatiApertoId===r.id;
+      var inModifica = risultatiModificaId===r.id;
+      var hasRis = r.golSubiti!==null && r.golSubiti!==undefined;
+      var badge = hasRis ? ('<b>'+(r.marcatori||[]).length+'</b>&nbsp;–&nbsp;<b>'+r.golSubiti+'</b>') : '<span style="color:var(--gray);font-size:12px;">nessun risultato</span>';
+      html += '<div class="risultati-item">'
+        + '<div class="risultati-item-top" data-rrow="'+idx+'"><div><div class="risultati-nome">'+r.nome+'</div><div class="risultati-data">'+(r.data||'')+'</div></div><div class="risultati-badge">'+badge+'</div></div>'
+        + (aperto ? ('<div class="risultato-box" style="padding-bottom:0;"><button class="gk-tutti-btn" data-rbtn2 data-act="togglemodifica" data-idx="'+idx+'" style="margin-top:0;">✏️ Modifica dati partita</button></div>') : '')
+        + (aperto && inModifica ? renderModificaBox(r, idx) : '')
+        + (aperto ? renderRisultatoBoxStandalone(r, idx) : '')
+        + '</div>';
+    });
+    html += '</div>';
   });
-  html += '</div>';
   body.innerHTML = html;
   body.querySelectorAll('[data-rrow]').forEach(el=>{
     el.onclick = () => {
@@ -1783,7 +1855,10 @@ function renderRisultatiBody() {
     btn.onclick = function(e){
       e.stopPropagation();
       var i=+this.dataset.idx, r=risultatiData[i], t=this.dataset.t!==undefined?+this.dataset.t:null;
-      if (this.dataset.act==='add') { r.tempi=[{marcatori:[],golSubiti:0}]; _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
+      if (this.dataset.act==='togglemodifica') { risultatiModificaId=(risultatiModificaId===r.id)?null:r.id; renderRisultatiBody(); }
+      else if (this.dataset.act==='annullamodifica') { risultatiModificaId=null; renderRisultatiBody(); }
+      else if (this.dataset.act==='salvamodifica') { salvaModificaPartita(i); }
+      else if (this.dataset.act==='add') { r.tempi=[{marcatori:[],golSubiti:0}]; _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
       else if (this.dataset.act==='addtempo') { r.tempi=r.tempi||[]; r.tempi.push({marcatori:[],golSubiti:0}); salvaRisultatoStandalone(r); renderRisultatiBody(); }
       else if (this.dataset.act==='rmtempo') {
         if ((r.tempi||[]).length<=1) { if(!confirm('Rimuovere il risultato inserito?'))return; r.tempi=[]; r.golSubiti=null; r.marcatori=[]; risultatiPickerId=null; }
@@ -1797,6 +1872,35 @@ function renderRisultatiBody() {
       else if (this.dataset.act==='rmgoal') { r.tempi[t].marcatori.splice(+this.dataset.k,1); _ricalcolaRisultato(r); salvaRisultatoStandalone(r); renderRisultatiBody(); }
     };
   });
+}
+function renderModificaBox(r, idx) {
+  var esc = s => (s||'').replace(/"/g,'&quot;');
+  return '<div class="risultato-box" style="padding-top:10px;">'
+    + '<div class="field-group" style="margin-bottom:8px;"><label>Nome partita</label><input type="text" id="editNome'+idx+'" value="'+esc(r.nomePartitaRaw)+'"></div>'
+    + '<div class="field-group" style="margin-bottom:8px;"><label>⚔️ Avversario</label><input type="text" id="editAvversario'+idx+'" value="'+esc(r.avversario)+'"></div>'
+    + '<div class="field-group" style="margin-bottom:10px;"><label>Data</label><input type="date" id="editData'+idx+'" value="'+esc(r.dataIso)+'"></div>'
+    + '<div style="display:flex;gap:8px;">'
+      + '<button class="btn btn-primary" style="flex:1;padding:9px;" data-rbtn2 data-act="salvamodifica" data-idx="'+idx+'">💾 Salva</button>'
+      + '<button class="btn-indietro" style="flex:1;" data-rbtn2 data-act="annullamodifica" data-idx="'+idx+'">Annulla</button>'
+    + '</div>'
+  + '</div>';
+}
+async function salvaModificaPartita(idx) {
+  var r = risultatiData[idx];
+  var nome = document.getElementById('editNome'+idx).value.trim();
+  var avversario = document.getElementById('editAvversario'+idx).value.trim();
+  var dataIso = document.getElementById('editData'+idx).value || null;
+  try {
+    const { error } = await sb.from('partite').update({ nome_partita:nome, avversario, data_partita:dataIso }).eq('id', r.id);
+    if (error) throw error;
+    r.nomePartitaRaw = nome; r.avversario = avversario; r.dataIso = dataIso||'';
+    r.data = fmtData(dataIso); r.nome = _nomeConAvversarioSalvato(nome, avversario);
+    // la data può essere cambiata: ricalcola l'ordinamento cronologico della lista
+    r.ts = _reportTsFromData(r.data); if (r.ts === null) r.ts = _reportTsFromId(r.id);
+    risultatiData.sort((a,b)=>b.ts-a.ts);
+    risultatiModificaId = null;
+    renderRisultatiBody();
+  } catch(e) { alert('Errore salvataggio: '+(e.message||e)); }
 }
 function renderRisultatoBoxStandalone(r, idx) {
   var hasRis = r.golSubiti!==null && r.golSubiti!==undefined;
